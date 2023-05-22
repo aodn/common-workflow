@@ -67,7 +67,7 @@ jobs:
         needs: get_upload_filename
         with:
           name: ${{ needs.get_upload_filename.outputs.oname }}
-          path: ${{ build_output }}
+          path: ${{ inputs.build_output }}
           # 'warn' or 'ignore' are also available, defaults to `warn`
           if-no-files-found: error
 
