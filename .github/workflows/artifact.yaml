@@ -7,7 +7,8 @@ on:
     inputs:
       environment:
         required: true
-        type: environment
+        type: string
+        default: OIDC_Eval
       artifact:
         required: true
         type: string
@@ -16,9 +17,20 @@ on:
         type: string
       build_output:
         description: 'Use in upload-artifact to github e.g. /project/target/app.war'
-        required: false
+        required: true
         type: string
         default: ''
+      region:
+        type: string
+        description: 'AWS run region default to ap-southeast-2'
+        default: 'ap-southeast-2'
+        required: true
+  # Allow pre-defined values be selected from GUI
+  workflow_dispatch:
+    environment:
+      required: true
+      type: environment
+    inputs:
       region:
         type: choice
         description: 'AWS run region default to ap-southeast-2'
