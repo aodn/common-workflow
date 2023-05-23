@@ -6,7 +6,7 @@ on:
     inputs:
       cmd:
         type: string
-        require: true
+        required: true
       docker_file:
         type: string
         required: true
