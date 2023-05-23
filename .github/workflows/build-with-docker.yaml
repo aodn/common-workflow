@@ -3,23 +3,24 @@ name: common_build_with_docker
 # Expect the build runs given a docker file.
 on:
   workflow_call:
-    cmd:
-      type: string
-      require: true
-    docker_file:
-      type: string
-      required: true
-    artifact:
-      required: true
-      type: string
-    tag:
-      required: false
-      type: string
-      default: ''
-    # The build output path and filename
-    target:
-      required: true
-      type: string
+    inputs:
+      cmd:
+        type: string
+        require: true
+      docker_file:
+        type: string
+        required: true
+      artifact:
+        required: true
+        type: string
+      tag:
+        required: false
+        type: string
+        default: ''
+      # The build output path and filename
+      target:
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.ref }}
