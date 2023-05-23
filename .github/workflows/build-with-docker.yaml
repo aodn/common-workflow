@@ -97,6 +97,6 @@ jobs:
       - name: Archive Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ needs.get_upload_filename.outputs.onname }}
+          name: ${{ needs.get_upload_filename.outputs.oname }}
           path: ${{ inputs.target }}
           retention-days: 180
