@@ -38,13 +38,13 @@ jobs:
           tag=${{ inputs.tag }}
           
           if [ "${tag}" != '' ]; then
-            output="${artifact}-${tag}.${filename##*.}"
+            output="${artifact}-${tag}.${filename##*.}";
           else
-            output="${artifact}-SNAPSHOT.${filename##*.}"
+            output="${artifact}-SNAPSHOT.${filename##*.}";
           fi
           
           echo "File name: $output"
-          echo "oname=$output" >> $GITHUB_OUTPUT
+          echo "oname=$output" >> GITHUB_OUTPUT;
 
   build:
     name: Create docker container and build artifact
