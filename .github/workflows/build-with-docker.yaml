@@ -67,34 +67,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Build Docker Image
-        uses: docker/build-push-action@v4
-        env:
-          BUILDER_UID: ${{ runner.uid }}
-        with:
-          context: .
-          file: ${{ inputs.docker_file }}
-          load: true
-          build-args: BUILDER_UID=${{ env.BUILDER_UID }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-          tags: ${{ inputs.artifact }}-build:latest
+#      - name: Build Docker Image
+#        uses: docker/build-push-action@v4
+#        env:
+#          BUILDER_UID: ${{ runner.uid }}
+#        with:
+#          context: .
+#          file: ${{ inputs.docker_file }}
+#          load: true
+#          build-args: BUILDER_UID=${{ env.BUILDER_UID }}
+#          cache-from: type=local,src=/tmp/.buildx-cache
+#          cache-to: type=local,dest=/tmp/.buildx-cache
+#          tags: ${{ inputs.artifact }}-build:latest
 
-      - name: Run Pipeline Steps
-        run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            -v ${{ runner.home }}/.m2:/home/builder/.m2 \
-            -v ${{ runner.home }}/.cache:/home/builder/.cachejournal/ \
-            -v ${{ runner.home }}/bin:${HOME}/bin \
-            -w /workspace \
-            --entrypoint /bin/bash \
-            ${{ inputs.artifact }}-build:latest -c '
-            git reset --hard ${{ inputs.tag }}
-            git clean --force --force -xd --exclude=web/node_modules
-            yarn --cwd web --frozen-lockfile
-            ${{ inputs.cmd }}
-          '
+#      - name: Run Pipeline Steps
+#        run: |
+#          docker run --rm \
+#            -v ${{ github.workspace }}:/workspace \
+#            -v ${{ runner.home }}/.m2:/home/builder/.m2 \
+#            -v ${{ runner.home }}/.cache:/home/builder/.cachejournal/ \
+#            -v ${{ runner.home }}/bin:${HOME}/bin \
+#            -w /workspace \
+#            --entrypoint /bin/bash \
+#            ${{ inputs.artifact }}-build:latest -c '
+#            git reset --hard ${{ inputs.tag }}
+#            git clean --force --force -xd --exclude=web/node_modules
+#            yarn --cwd web --frozen-lockfile
+#            ${{ inputs.cmd }}
+#          '
 
       - name: Upload artifact name ${{ needs.get_upload_filename.outputs.oname }}
         uses: actions/upload-artifact@v3
