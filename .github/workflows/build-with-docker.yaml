@@ -33,7 +33,7 @@ jobs:
     outputs:
       oname: ${{ steps.gen_file_name.outputs.name }}
     steps:
-      - name: gen_file_name
+      - id: gen_file_name
         run: |
           filename=${{ inputs.target }}
           artifact=${{ inputs.artifact }}
