@@ -1,26 +1,53 @@
 name: common_build_with_docker
 
-# Expect the build runs given a docker file.
+# Expect the build runs given a docker file, a sample workflow to call this is like below:
+# name: Test use common
+#
+# on:
+#  push:
+#    branches:
+#      - raymond-playground
+#
+# jobs:
+#  build-upload:
+#    name: Build upload
+#    uses: aodn/common-workflow/.github/workflows/build-with-docker.yaml@main
+#    with:
+#      artifact: ogcapi-java
+#      tag: ''
+#      docker_file: Docker.build
+#      cmd: mvn -f ogc-api clean package
+#      target: ogc-api/target/*.jar
+
 on:
   workflow_call:
     inputs:
       cmd:
+        description: 'The cmd to kick start the build in the docker environment. i.e. for maven mvn -f ogc-api clean package'
         type: string
         required: true
       docker_file:
+        description: 'A dockerfile name, which create the build environment'
         type: string
         required: true
       artifact:
+        description: 'The artifact name'
         required: true
         type: string
       tag:
+        description: 'The tag version to build and file name will include the tag name artifact-tag.ext, if no provide then HEAD is use and output file is artifact-SNAPSHOT.ext'
         required: false
         type: string
         default: ''
-      # The build output path and filename
       target:
+        description: 'Full path of output build file, i.e ogc-api/target/*.jar. File extension will be use to create the final upload name'
         required: true
         type: string
+      keep_days:
+        description: 'How long to keep the output file in github'
+        required: false
+        type: number
+        default: 14
 
 concurrency:
   group: ${{ github.ref }}
@@ -101,5 +128,5 @@ jobs:
         with:
           name: ${{ needs.get_upload_filename.outputs.oname }}
           path: ${{ inputs.target }}
-          retention-days: 180
-          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn`
+          retention-days: ${{ inputs.keep_days }}        # Same as repo setting
+          if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
