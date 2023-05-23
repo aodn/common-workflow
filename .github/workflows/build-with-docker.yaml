@@ -31,7 +31,7 @@ jobs:
     name: Create upload artficate name
     runs-on: ubuntu-latest
     outputs:
-      oname: 'test'
+      oname: ${{ steps.gen_file_name.outputs.f }}
     steps:
       - id: gen_file_name
         run: |
@@ -45,12 +45,12 @@ jobs:
             output="${artifact}-SNAPSHOT.${filename##*.}";
           fi
           
-          echo "File name: $output"
-          echo "name=$output" >> GITHUB_OUTPUT;
+          echo "File name: $output";
+          echo "f=$output" >> GITHUB_OUTPUT;
 
   build:
     name: Create docker container and build artifact
-    needs: get_upload_filename
+    needs: [get_upload_filename]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
