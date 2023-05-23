@@ -94,7 +94,7 @@ jobs:
             ${{ inputs.cmd }}
           '
 
-      - name: Archive Artifact
+      - name: Upload artifact name ${{ needs.get_upload_filename.outputs.oname }}
         uses: actions/upload-artifact@v3
         with:
           name: ${{ needs.get_upload_filename.outputs.oname }}
