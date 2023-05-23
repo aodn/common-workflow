@@ -46,7 +46,7 @@ jobs:
           fi
           
           echo "File name: $output";
-          echo "f=$output" >> GITHUB_OUTPUT;
+          echo "f=$output" >> $GITHUB_OUTPUT;
 
   build:
     name: Create docker container and build artifact
@@ -102,3 +102,4 @@ jobs:
           name: ${{ needs.get_upload_filename.outputs.oname }}
           path: ${{ inputs.target }}
           retention-days: 180
+          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn`
