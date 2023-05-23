@@ -31,7 +31,7 @@ jobs:
     name: Create upload artficate name
     runs-on: ubuntu-latest
     outputs:
-      oname: ${{ steps.gen_file_name.outputs.name }}
+      oname: 'test'
     steps:
       - id: gen_file_name
         run: |
