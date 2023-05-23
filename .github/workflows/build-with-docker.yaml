@@ -1,0 +1,101 @@
+name: common_build_with_docker
+
+# Expect the build runs given a docker file.
+on:
+  workflow_call:
+    cmd:
+      type: string
+      require: true
+    docker_file:
+      type: string
+      required: true
+    artifact:
+      required: true
+      type: string
+    tag:
+      required: false
+      type: string
+      default: ''
+    # The build output path and filename
+    target:
+      required: true
+      type: string
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  get_upload_filename:
+    name: Create upload artficate name
+    runs-on: ubuntu-latest
+    steps:
+      - name: gen_file_name
+        run: |
+          filename=${{ inputs.target }}
+          artifact=${{ inputs.artifact }}
+          tag=${{ inputs.tag }}
+          
+          if [ "${tag}" != '' ]; then
+            output="${artifact}-${tag}.${filename##*.}"
+          else
+            output="${artifact}-SNAPSHOT.${filename##*.}"
+          fi
+          
+          echo "File name: $output"
+          echo "oname=$output" >> $GITHUB_OUTPUT
+
+  build:
+    name: Create docker container and build artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v4
+        env:
+          BUILDER_UID: ${{ runner.uid }}
+        with:
+          context: .
+          file: ${{ inputs.docker_file }}
+          load: true
+          build-args: BUILDER_UID=${{ env.BUILDER_UID }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          tags: ${{ inputs.artifact }}-build:latest
+
+      - name: Run Pipeline Steps
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ runner.home }}/.m2:/home/builder/.m2 \
+            -v ${{ runner.home }}/.cache:/home/builder/.cachejournal/ \
+            -v ${{ runner.home }}/bin:${HOME}/bin \
+            -w /workspace \
+            --entrypoint /bin/bash \
+            ${{ inputs.artifact }}-build:latest -c '
+            git reset --hard ${{ inputs.tag }}
+            git clean --force --force -xd --exclude=web/node_modules
+            yarn --cwd web --frozen-lockfile
+            ${{ inputs.cmd }}
+          '
+
+      - name: Archive Artifact
+        needs: get_upload_filename
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ needs.get_upload_filename.outputs.onname }}
+          path: ${{ inputs.target }}
+          retention-days: 180
