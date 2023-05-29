@@ -83,6 +83,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Install GitVersion
+        if: ${{ inputs.tag }} == ''
+          uses: gittools/actions/gitversion/setup@v0
+          with:
+            versionSpec: '5.x'
+            preferLatestVersion: true
+
+      # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
+      - name: Determine Version
+        if: ${{ inputs.tag }} == ''
+          id:   gitversion # id to later be referenced
+          uses: gittools/actions/gitversion/execute@v0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -126,7 +139,7 @@ jobs:
       - name: Upload artifact name ${{ needs.get_upload_filename.outputs.oname }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ needs.get_upload_filename.outputs.oname }}
+          name: "${{ inputs.artifact }}-${{ steps.gitversion.outputs.fullSemVer }}"
           path: ${{ inputs.target }}
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`

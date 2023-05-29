@@ -1,0 +1,23 @@
+name: common_deploy_artifact_s3
+
+# Assume that artifact stored in GitHub and from there copy to S3
+
+on:
+  workflow_call:
+    artifact:
+      description: 'The artifact name'
+      required: true
+      type: string
+    tag:
+      description: 'The tag version to build and file name will include the tag name artifact-tag.ext, if no provide then HEAD is use and output file is artifact-SNAPSHOT.ext'
+      required: false
+      type: string
+      default: ''
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  copy_to_s3:
+    name: Copy artifact from github to S3
