@@ -59,26 +59,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  get_upload_filename:
-    name: Create upload artficate name
-    runs-on: ubuntu-latest
-    outputs:
-      oname: ${{ steps.gen_file_name.outputs.f }}
-    steps:
-      - id: gen_file_name
-        run: |
-          filename=${{ inputs.target }}
-          artifact=${{ inputs.artifact }}
-          tag=${{ inputs.tag }}
-          
-          if [ "${tag}" != '' ]; then
-            output="${artifact}-${tag}.${filename##*.}";
-          else
-            output="${artifact}-SNAPSHOT.${filename##*.}";
-          fi
-          
-          echo "File name: $output";
-          echo "f=$output" >> $GITHUB_OUTPUT;
+#  get_upload_filename:
+#    name: Create upload artficate name
+#    runs-on: ubuntu-latest
+#    outputs:
+#      oname: ${{ steps.gen_file_name.outputs.f }}
+#    steps:
+#      - id: gen_file_name
+#        run: |
+#          filename=${{ inputs.target }}
+#          artifact=${{ inputs.artifact }}
+#          tag=${{ inputs.tag }}
+#
+#          if [ "${tag}" != '' ]; then
+#            output="${artifact}-${tag}.${filename##*.}";
+#          else
+#            output="${artifact}-SNAPSHOT.${filename##*.}";
+#          fi
+#
+#          echo "File name: $output";
+#          echo "f=$output" >> $GITHUB_OUTPUT;
 
   build:
     name: Create docker container and build artifact
