@@ -151,7 +151,6 @@ jobs:
 
       - name: "Upload artifact name ${{ steps.gen_artifact_name.outputs.semVer }}"
         id: upload-artifact
-        needs: [docker-build]
         uses: actions/upload-artifact@v3
         with:
           name: "${{ steps.gen_artifact_name.outputs.semVer }}"
@@ -160,7 +159,6 @@ jobs:
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
 
       - name: Publish release with GitReleaseManager
-        needs: [upload-artifact]
         if: ${{ inputs.version_method }} == 'gitversion' && (${GITHUB_REF##*/} == 'main' || ${GITHUB_REF##*/} == 'master')
         uses: gittools/actions/gitreleasemanager/publish@v0
         with:
