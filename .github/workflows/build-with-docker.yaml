@@ -162,6 +162,6 @@ jobs:
       - name: Publish release with GitReleaseManager
         needs: [upload-artifact]
         if: ${{ inputs.version_method }} == 'gitversion' && (${GITHUB_REF##*/} == 'main' || ${GITHUB_REF##*/} == 'master')
-        uses: gittools/actions/gitreleasemanager/publishv0
+        uses: gittools/actions/gitreleasemanager/publish@v0
         with:
           tagName: ${{ steps.gitversion.outputs.semVer }}
