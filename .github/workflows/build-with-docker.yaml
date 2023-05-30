@@ -82,7 +82,7 @@ jobs:
 
       - name: Install GitReleaseManager
         uses: gittools/actions/gitreleasemanager/setupv0
-        -
+        
       # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
       - name: Determine Version
         if: ${{ inputs.version_method }} == 'gitversion'
