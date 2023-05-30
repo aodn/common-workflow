@@ -75,10 +75,18 @@ jobs:
           echo "File name: $output";
           echo "f=$output" >> $GITHUB_OUTPUT;
 
+  init:
+    name: Init steps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
   # Determine version using gitversion
   # 'If inputs tag have value, then use it else use gitversion to infer it'
   get_artifact_versioned_name:
     name: Determine Version
+    needs: [init]
     runs-on: ubuntu-latest
     outputs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
@@ -101,9 +109,6 @@ jobs:
     needs: [get_artifact_versioned_name]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
