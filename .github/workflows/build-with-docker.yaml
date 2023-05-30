@@ -101,7 +101,7 @@ jobs:
           tag=${{ inputs.tag }}
 
           if [ "${method}" == 'gitversion' ]; then
-            v="${artifact}-${{steps.gitversion.outputs.semVer}}.${filename##*.}";
+            v="${artifact}-${{steps.gitversion.outputs.fullSemVer}}.${filename##*.}";
           else
             v="${artifact}-${tag}.${filename##*.}";
           fi
