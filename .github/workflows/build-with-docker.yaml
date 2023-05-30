@@ -85,6 +85,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0      # must use this else gitversion will fail
 
       - id: gitversion
         run: |
