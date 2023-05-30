@@ -75,45 +75,45 @@ jobs:
           echo "File name: $output";
           echo "f=$output" >> $GITHUB_OUTPUT;
 
-  # Determine version using gitversion
-  # 'If inputs tag have value, then use it else use gitversion to infer it'
-  get_artifact_versioned_name:
-    name: Determine Version
+  build:
+    name: Create docker container and build artifact
+    needs: [get_upload_filename]
     runs-on: ubuntu-latest
-    outputs:
-      semVer: ${{ steps.gitversion.outputs.semVer }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0      # must use this else gitversion will fail
+          fetch-depth: 0
 
-      - id: gitversion
+      - name: Install GitVersion
+        if: ${{ inputs.tag }} == 'gitversion'
+        uses: gittools/actions/gitversion/setup@v0
+          with:
+            versionSpec: '5.x'
+            preferLatestVersion: true
+
+      # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
+      - name: Determine Version
+        if: ${{ inputs.tag }} == 'gitversion'
+        id: gitversion # id to later be referenced
+        uses: gittools/actions/gitversion/execute@v0
+
+      - name: Create artifact name
+        outputs:
+          artifact_name: ${{ steps.gen_artifact_name.outputs.v }}
+        id: 'gen_artifact_name'
         run: |
           artifact=${{ inputs.artifact }}
           filename=${{ inputs.target }}
           tag=${{ inputs.tag }}
-          
-          if [ "${tag}" == '' ]; then
-            echo "Run gitversion";
-            docker run --rm -v "$(pwd):/repo" gittools/gitversion:5.12.0-alpine.3.14-6.0 /repo > version.json;
-            echo "Parse version";
-            semVer=`jq .SemVer version.json`;
+
+          if [ "${tag}" == 'gitversion' ]; then
+            v="${artifact}-${{steps.gitversion.outputs.semVer}}.${filename##*.}";
           else
-            semVer=${tag}
+            v="${artifact}-${tag}.${filename##*.}";
           fi
           
-          output=${artifact}-${semVer}.${filename##*.};
-          echo "File name: $output";
-          echo "semVer=${output}" >> $GITHUB_OUTPUT;
-
-  build:
-    name: Create docker container and build artifact
-    needs: [get_artifact_versioned_name]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+          echo "v=${v}" >> $GITHUB_OUTPUT;
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -155,10 +155,11 @@ jobs:
             ${{ inputs.cmd }}
           '
 
-      - name: Upload artifact name ${{ needs.get_upload_filename.outputs.oname }}
+      - name: "Upload artifact name ${{ steps.gen_artifact_name.outputs.artifact_name }}"
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ needs.get_artifact_versioned_name.outputs.semVer }}"
+          name: "${{ steps.gen_artifact_name.outputs.artifact_name }}"
           path: ${{ inputs.target }}
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
+
