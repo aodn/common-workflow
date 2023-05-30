@@ -95,6 +95,7 @@ jobs:
           if [ "${tag}" == '' ]; then
             echo "Run gitversion";
             docker run --rm -v "$(pwd):/repo" gittools/gitversion:5.6.6 /repo > version.json;
+            echo "Parse version";
             semVer=`jq .SemVer version.json`;
           else
             semVer=${tag}
