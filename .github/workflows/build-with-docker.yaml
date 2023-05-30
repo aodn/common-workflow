@@ -88,9 +88,9 @@ jobs:
       - name: Install GitVersion
         if: ${{ inputs.tag }} == 'gitversion'
         uses: gittools/actions/gitversion/setup@v0
-          with:
-            versionSpec: '5.x'
-            preferLatestVersion: true
+        with:
+          versionSpec: '5.x'
+          preferLatestVersion: true
 
       # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
       - name: Determine Version
