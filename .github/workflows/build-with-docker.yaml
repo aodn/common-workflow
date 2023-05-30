@@ -93,8 +93,7 @@ jobs:
         if: ${{ inputs.tag }} == ''
         uses: gittools/actions/gitversion/setup@v0
         with:
-          gitversion-version: '5.x'
-          preferLatestVersion: true
+          gitversion-version: '5.6.6'
 
       # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
       - name: Determine Version
