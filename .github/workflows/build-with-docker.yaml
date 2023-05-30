@@ -82,7 +82,6 @@ jobs:
 
   build:
     name: Create docker container and build artifact
-    needs: [get_upload_filename]
     runs-on: ubuntu-latest
     outputs:
       artifact_name: ${{ steps.gen_artifact_name.outputs.semVer }}
