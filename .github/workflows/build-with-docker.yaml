@@ -78,7 +78,7 @@ jobs:
   # Determine version using gitversion
   get_artifact_versioned_name:
     name: Determine Version
-    description: 'If inputs tag have value, then use it else use gitversion to infer it'
+    descriptions: 'If inputs tag have value, then use it else use gitversion to infer it'
     runs-on: ubuntu-latest
     outputs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
