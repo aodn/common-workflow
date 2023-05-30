@@ -1,5 +1,8 @@
 name: common_build_with_docker
 
+# Please read this before continue https://lucamezzalira.com/2014/03/10/git-flow-vs-github-flow/
+#
+#
 # Expect the build runs given a docker file, a sample workflow to call this is like below:
 # name: Test use common
 #
@@ -59,27 +62,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-#  get_upload_filename:
-#    name: Create upload artficate name
-#    runs-on: ubuntu-latest
-#    outputs:
-#      oname: ${{ steps.gen_file_name.outputs.f }}
-#    steps:
-#      - id: gen_file_name
-#        run: |
-#          filename=${{ inputs.target }}
-#          artifact=${{ inputs.artifact }}
-#          tag=${{ inputs.tag }}
-#
-#          if [ "${tag}" != '' ]; then
-#            output="${artifact}-${tag}.${filename##*.}";
-#          else
-#            output="${artifact}-SNAPSHOT.${filename##*.}";
-#          fi
-#
-#          echo "File name: $output";
-#          echo "f=$output" >> $GITHUB_OUTPUT;
-
   build:
     name: Create docker container and build artifact
     runs-on: ubuntu-latest
@@ -98,6 +80,9 @@ jobs:
           versionSpec: '5.x'
           preferLatestVersion: true
 
+      - name: Install GitReleaseManager
+        uses: gittools/actions/gitreleasemanager/setupv0
+        -
       # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
       - name: Determine Version
         if: ${{ inputs.version_method }} == 'gitversion'
@@ -145,6 +130,7 @@ jobs:
           tags: ${{ inputs.artifact }}-build:latest
 
       - name: Run Pipeline Steps
+        id: docker-build
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
@@ -161,6 +147,8 @@ jobs:
           '
 
       - name: "Upload artifact name ${{ steps.gen_artifact_name.outputs.semVer }}"
+        id: upload-artifact
+        needs: [docker-build]
         uses: actions/upload-artifact@v3
         with:
           name: "${{ steps.gen_artifact_name.outputs.semVer }}"
@@ -168,3 +156,9 @@ jobs:
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
 
+      - name: Publish release with GitReleaseManager
+        needs: [upload-artifact]
+        if: ${GITHUB_REF##*/} == 'main' or ${GITHUB_REF##*/} == 'master'
+        uses: gittools/actions/gitreleasemanager/publishv0
+        with:
+          tagName: ${{ steps.gitversion.outputs.semVer }}
