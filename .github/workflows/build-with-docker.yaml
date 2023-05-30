@@ -83,12 +83,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Install GitVersion
+      - name: Install Dotnet and GitVersion
         if: ${{ inputs.tag }} == ''
-        uses: gittools/actions/gitversion/setup@v0
-        with:
-          versionSpec: '5.x'
-          preferLatestVersion: true
+        - uses: actions/setup-setup-dotnet@v3
+          with:
+            dotnet-version: '3.1.x'
+        - uses: gittools/actions/gitversion/setup@v0
+          with:
+            gitversion-version: '5.x'
+            preferLatestVersion: true
 
       # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
       - name: Determine Version
