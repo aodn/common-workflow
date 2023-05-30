@@ -34,6 +34,11 @@ on:
         description: 'The artifact name'
         required: true
         type: string
+      version_method:
+        description: 'How you want to version your artifact, manual or gitversion? Default is gitversion'
+        required: false
+        type: string
+        default: 'gitversion'
       tag:
         description: 'The tag version to build and file name will include the tag name artifact-tag.ext, if no provide then HEAD is use and output file is artifact-SNAPSHOT.ext'
         required: false
@@ -85,10 +90,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0      # Must use this option else gitversion will fail
 
       - name: Install GitVersion
-        if: ${{ inputs.tag }} == 'gitversion'
+        if: ${{ inputs.version_method }} == 'gitversion'
         uses: gittools/actions/gitversion/setup@v0
         with:
           versionSpec: '5.x'
@@ -96,7 +101,7 @@ jobs:
 
       # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
       - name: Determine Version
-        if: ${{ inputs.tag }} == 'gitversion'
+        if: ${{ inputs.version_method }} == 'gitversion'
         id: gitversion # id to later be referenced
         uses: gittools/actions/gitversion/execute@v0
 
@@ -105,9 +110,10 @@ jobs:
         run: |
           artifact=${{ inputs.artifact }}
           filename=${{ inputs.target }}
+          method=${{ inputs.version_method }}
           tag=${{ inputs.tag }}
 
-          if [ "${tag}" == 'gitversion' ]; then
+          if [ "${method}" == 'gitversion' ]; then
             v="${artifact}-${{steps.gitversion.outputs.semVer}}.${filename##*.}";
           else
             v="${artifact}-${tag}.${filename##*.}";
@@ -155,7 +161,7 @@ jobs:
             ${{ inputs.cmd }}
           '
 
-      - name: "Upload artifact name ${{ steps.gen_artifact_name.outputs.artifact_name }}"
+      - name: "Upload artifact name ${{ steps.gen_artifact_name.outputs.semVer }}"
         uses: actions/upload-artifact@v3
         with:
           name: "${{ steps.gen_artifact_name.outputs.semVer }}"
