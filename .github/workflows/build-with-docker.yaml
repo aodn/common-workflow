@@ -85,15 +85,15 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-        
+
       - id: gitversion
         run: |
+          artifact=${{ inputs.artifact }}
           filename=${{ inputs.target }}
           tag=${{ inputs.tag }}
-          artifact=${{ inputs.artifact }}
           if [ "${tag}" == '' ]; then
             docker run --rm -v "$(pwd):/repo" gittools/gitversion:5.6.6 /repo > version.json;
-            semVer=cat version.json | jq .semVer;
+            semVer=`jq .SemVer version.json`;
           else
             semVer=${tag}
           fi
