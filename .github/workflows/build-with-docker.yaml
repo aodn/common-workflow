@@ -81,8 +81,11 @@ jobs:
           preferLatestVersion: true
 
       - name: Install GitReleaseManager
+        if: ${{ inputs.version_method }} == 'gitversion'
         uses: gittools/actions/gitreleasemanager/setupv0
-        
+        with:
+          versionSpec: '0.10.x'
+          
       # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
       - name: Determine Version
         if: ${{ inputs.version_method }} == 'gitversion'
@@ -158,7 +161,7 @@ jobs:
 
       - name: Publish release with GitReleaseManager
         needs: [upload-artifact]
-        if: ${GITHUB_REF##*/} == 'main' or ${GITHUB_REF##*/} == 'master'
+        if: ${{ inputs.version_method }} == 'gitversion' and (${GITHUB_REF##*/} == 'main' or ${GITHUB_REF##*/} == 'master')
         uses: gittools/actions/gitreleasemanager/publishv0
         with:
           tagName: ${{ steps.gitversion.outputs.semVer }}
