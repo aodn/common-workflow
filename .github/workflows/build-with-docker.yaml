@@ -159,9 +159,9 @@ jobs:
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
 
-      - name: Publish release with GitReleaseManager
-        needs: [upload-artifact]
-        if: ${{ inputs.version_method }} == 'gitversion' && (${GITHUB_REF##*/} == 'main' || ${GITHUB_REF##*/} == 'master')
-        uses: gittools/actions/gitreleasemanager/publish@v0
-        with:
-          tagName: ${{ steps.gitversion.outputs.semVer }}
+#      - name: Publish release with GitReleaseManager
+#        needs: [upload-artifact]
+#        if: ${{ inputs.version_method }} == 'gitversion' && (${GITHUB_REF##*/} == 'main' || ${GITHUB_REF##*/} == 'master')
+#        uses: gittools/actions/gitreleasemanager/publish@v0
+#        with:
+#          tagName: ${{ steps.gitversion.outputs.semVer }}
