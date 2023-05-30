@@ -161,7 +161,7 @@ jobs:
 
       - name: Create tag
         if: ${{ inputs.version_method }} == 'gitversion' && (${GITHUB_REF##*/} == 'main' || ${GITHUB_REF##*/} == 'master')
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         with:
           script: |
             github.rest.git.createRef({
