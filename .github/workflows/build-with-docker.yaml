@@ -108,6 +108,7 @@ jobs:
           
           echo "artifactVer=${v}" >> $GITHUB_OUTPUT;
           echo "semVer=${{steps.gitversion.outputs.semVer}}" >> $GITHUB_OUTPUT;
+          echo "fullSemVer=${{steps.gitversion.outputs.fullSemVer}}" >> $GITHUB_OUTPUT;
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -167,13 +168,13 @@ jobs:
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT;
 
       - name: Create tag
-        if: ${{ inputs.version_method }} == 'gitversion' && (${{steps.extract_branch.outputs.branch}} == 'main' || ${{steps.extract_branch.outputs.branch}} == 'master')
         uses: actions/github-script@v6
+        if: ${{ inputs.version_method }} == 'gitversion' && (${{steps.extract_branch.outputs.branch}} == 'main' || ${{steps.extract_branch.outputs.branch}} == 'master')
         with:
           script: |
             github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/${{steps.gen_artifact_name.outputs.semVer}}',
+              ref: 'refs/tags/${{steps.gen_artifact_name.outputs.fullSemVer}}',
               sha: context.sha
             })
