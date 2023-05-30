@@ -75,31 +75,33 @@ jobs:
           echo "File name: $output";
           echo "f=$output" >> $GITHUB_OUTPUT;
 
+  # Determine version using gitversion
+  get_artifact_version:
+    name: Determine Version
+    description: 'If inputs tag have value, then use it else use gitversion to infer it'
+    runs-on: ubuntu-latest
+    id: gitversion # id to later be referenced
+    outputs:
+      semVer: ${{ steps.gitversion.outputs.semVer }}
+    steps:
+      id: gitversion
+      run: |
+        tag=${{ inputs.tag }}
+        if [ "${tag}" == '' ]; then
+          docker run --rm -v "$(pwd):/repo" gittools/gitversion:5.6.6 /repo > version.json;
+          semVer=cat version.json | jq .semVer;
+          echo "semVer=$semVer" >> $GITHUB_OUTPUT;
+        else
+          semVer=${tag}
+        fi
+
   build:
     name: Create docker container and build artifact
-    needs: [get_upload_filename]
+    needs: [get_artifact_version]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-
-      - name: Install Dotnet
-        if: ${{ inputs.tag }} == ''
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '3.1.x'
-
-      - name: Install GitVersion
-        if: ${{ inputs.tag }} == ''
-        uses: gittools/actions/gitversion/setup@v0
-        with:
-          gitversion-version: '5.6.6'
-
-      # https://github.com/GitTools/actions/blob/main/docs/examples/github/gitversion/execute/usage-examples.md
-      - name: Determine Version
-        if: ${{ inputs.tag }} == ''
-        id:   gitversion # id to later be referenced
-        uses: gittools/actions/gitversion/execute@v0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -144,7 +146,7 @@ jobs:
       - name: Upload artifact name ${{ needs.get_upload_filename.outputs.oname }}
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ inputs.artifact }}-${{ steps.gitversion.outputs.fullSemVer }}"
+          name: "${{ inputs.artifact }}-${{ get_artifact_version.outputs.semVer }}"
           path: ${{ inputs.target }}
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
