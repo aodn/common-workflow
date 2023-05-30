@@ -76,7 +76,7 @@ jobs:
           echo "f=$output" >> $GITHUB_OUTPUT;
 
   # Determine version using gitversion
-  get_artifact_version:
+  get_artifact_versioned_name:
     name: Determine Version
     description: 'If inputs tag have value, then use it else use gitversion to infer it'
     runs-on: ubuntu-latest
@@ -86,18 +86,20 @@ jobs:
     steps:
       id: gitversion
       run: |
+        filename=${{ inputs.target }}
         tag=${{ inputs.tag }}
+        artifact=${{ inputs.artifact }}
         if [ "${tag}" == '' ]; then
           docker run --rm -v "$(pwd):/repo" gittools/gitversion:5.6.6 /repo > version.json;
           semVer=cat version.json | jq .semVer;
-          echo "semVer=$semVer" >> $GITHUB_OUTPUT;
+          echo "semVer=${artifact}-${semVer}.${filename##*.}" >> $GITHUB_OUTPUT;
         else
           semVer=${tag}
         fi
 
   build:
     name: Create docker container and build artifact
-    needs: [get_artifact_version]
+    needs: [get_artifact_versioned_name]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -146,7 +148,7 @@ jobs:
       - name: Upload artifact name ${{ needs.get_upload_filename.outputs.oname }}
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ inputs.artifact }}-${{ get_artifact_version.outputs.semVer }}"
+          name: "${{ get_artifact_versioned_name.outputs.semVer }}"
           path: ${{ inputs.target }}
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
