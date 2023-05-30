@@ -159,8 +159,13 @@ jobs:
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
 
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
       - name: Create tag
-        if: ${{ inputs.version_method }} == 'gitversion' && (${GITHUB_REF##*/} == 'main' || ${GITHUB_REF##*/} == 'master')
+        if: ${{ inputs.version_method }} == 'gitversion' && (${{steps.extract_branch.outputs.branch}} == 'main' || ${{steps.extract_branch.outputs.branch}} == 'master')
         uses: actions/github-script@v6
         with:
           script: |
