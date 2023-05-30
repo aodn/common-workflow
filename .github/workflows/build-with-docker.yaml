@@ -91,11 +91,11 @@ jobs:
           if [ "${tag}" == '' ]; then
             docker run --rm -v "$(pwd):/repo" gittools/gitversion:5.6.6 /repo > version.json;
             semVer=cat version.json | jq .semVer;
-            echo "semVer=${artifact}-${semVer}.${filename##*.}" >> $GITHUB_OUTPUT;
           else
             semVer=${tag}
           fi
-          
+          echo "semVer=${artifact}-${semVer}.${filename##*.}" >> $GITHUB_OUTPUT;
+
   build:
     name: Create docker container and build artifact
     needs: [get_artifact_versioned_name]
@@ -147,7 +147,7 @@ jobs:
       - name: Upload artifact name ${{ needs.get_upload_filename.outputs.oname }}
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ get_artifact_versioned_name.outputs.semVer }}"
+          name: "${{ needs.get_artifact_versioned_name.outputs.semVer }}"
           path: ${{ inputs.target }}
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
