@@ -29,7 +29,13 @@ jobs:
           role-skip-session-tagging: true
           role-duration-seconds: 900
 
-      - name: copy artifact action
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ inputs.artifact }}
+
+      - name: Copy artifact action
           run: |
             aws s3 cp \
+            ${{ inputs.artifact }} \
             s3://${{ secrets.AWS_ARTIFACT_BUCKET }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
