@@ -46,7 +46,7 @@ jobs:
           name: ${{ inputs.artifact }}
 
       - name: Copy artifact action
-          run: |
-            aws s3 cp \
-            ${{ inputs.artifact }} \
-            s3://${{ secrets.AWS_ARTIFACT_BUCKET }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
+        run: |
+          aws s3 cp \
+          ${{ inputs.artifact }} \
+          s3://${{ secrets.AWS_ARTIFACT_BUCKET }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
