@@ -1,7 +1,7 @@
 name: common_build_with_docker
 
 # Please read this before continue https://lucamezzalira.com/2014/03/10/git-flow-vs-github-flow/
-#
+# then read this https://gitversion.net/docs/
 #
 # Expect the build runs given a docker file, a sample workflow to call this is like below:
 # name: Test use common
@@ -149,11 +149,10 @@ jobs:
             ${{ inputs.artifact }}-build:latest -c '
             git reset --hard ${{ inputs.tag }}
             git clean --force --force -xd --exclude=web/node_modules
-            yarn --cwd web --frozen-lockfile
             ${{ inputs.cmd }}
           '
 
-      - name: "Upload artifact name ${{ steps.gen_artifact_name.outputs.artifactVer }}"
+      - name: Upload artifact name ${{ steps.gen_artifact_name.outputs.artifactVer }}
         id: upload-artifact
         uses: actions/upload-artifact@v3
         with:
@@ -178,15 +177,12 @@ jobs:
             const method = "${{ inputs.version_method }}";
             
             if (method === 'gitversion' && (branchName === 'refs/heads/main' || branchName === 'refs/heads/master')) {
-              const { data: commit } = await github.git.getCommit({
-                ...context.repo,
-                commit_sha: context.sha
-              });
-
-              await github.git.createRef({
-                ...context.repo,
-                ref: `refs/tags/${tagName}`,
-                sha: commit.sha
+              
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'refs/tags/${tagName}',
+                sha: context.sha
               });
 
               console.log(`Tag '${tagName}' created and pushed successfully.`);
