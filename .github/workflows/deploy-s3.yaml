@@ -5,14 +5,9 @@ name: common_deploy_artifact_s3
 on:
   workflow_call:
     artifact:
-      description: 'The artifact name'
+      description: 'The artifact name include version and extension'
       required: true
       type: string
-    tag:
-      description: 'The tag version to build and file name will include the tag name artifact-tag.ext, if no provide then HEAD is use and output file is artifact-SNAPSHOT.ext'
-      required: false
-      type: string
-      default: ''
 
 concurrency:
   group: ${{ github.ref }}
@@ -20,4 +15,21 @@ concurrency:
 
 jobs:
   copy_to_s3:
-    name: Copy artifact from github to S3
+    name: copy artifact from github to s3 env ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ap-southeast-2
+          role-skip-session-tagging: true
+          role-duration-seconds: 900
+
+      - name: copy artifact action
+          run: |
+            aws s3 cp \
+            s3://${{ secrets.AWS_ARTIFACT_BUCKET }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
