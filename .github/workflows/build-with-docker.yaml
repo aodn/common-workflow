@@ -174,7 +174,7 @@ jobs:
         with:
           script: |
             const branchName = context.payload.ref;
-            const tagName = ${{steps.gen_artifact_name.outputs.fullSemVer}};
+            const tagName = '${{steps.gen_artifact_name.outputs.fullSemVer}}';
             
             if ('${{ inputs.version_method }}' === 'gitversion' && (branchName === 'refs/heads/main' || branchName === 'refs/heads/master')) {
               const { data: commit } = await github.git.getCommit({
