@@ -169,12 +169,25 @@ jobs:
 
       - name: Create tag
         uses: actions/github-script@v6
-        if: ${{ inputs.version_method }} == 'gitversion' && (${{steps.extract_branch.outputs.branch}} == 'main' || ${{steps.extract_branch.outputs.branch}} == 'master')
         with:
           script: |
-            github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'refs/tags/${{steps.gen_artifact_name.outputs.fullSemVer}}',
-              sha: context.sha
-            })
+            const branchName = context.payload.ref;
+            const tagName = ${{steps.gen_artifact_name.outputs.fullSemVer}};
+            
+            if (${{ inputs.version_method }} === 'gitversion' && (branchName === 'refs/heads/main' || branchName === 'refs/heads/master')) {
+              const { data: commit } = await github.git.getCommit({
+                ...context.repo,
+                commit_sha: context.sha
+              });
+
+              await github.git.createRef({
+                ...context.repo,
+                ref: `refs/tags/${tagName}`,
+                sha: commit.sha
+              });
+
+              console.log(`Tag '${tagName}' created and pushed successfully.`);
+            } 
+            else {
+              console.log('Skipping tag creation as branch name is not main or master and gitversion verion_method is not enabled');
+            }
