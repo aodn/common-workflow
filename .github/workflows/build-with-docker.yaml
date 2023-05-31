@@ -173,7 +173,7 @@ jobs:
         with:
           script: |
             const branchName = context.payload.ref;
-            const tagName = "${{ steps.gen_artifact_name.outputs.fullSemVer }}";
+            const tagName = "${{ steps.gen_artifact_name.outputs.semVer }}";
             const method = "${{ inputs.version_method }}";
             
             if (method === 'gitversion' && (branchName === 'refs/heads/main' || branchName === 'refs/heads/master')) {
@@ -181,7 +181,7 @@ jobs:
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref: 'refs/tags/${tagName}',
+                ref: `refs/tags/${tagName}`,
                 sha: context.sha
               });
 
