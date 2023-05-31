@@ -27,9 +27,6 @@ on:
         required: false
         type: string
         default: 'ap-southeast-2'
-      role-to-assume:
-        required: true
-        type: string
       s3bucket:
         required: false
         type: string
@@ -53,7 +50,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ inputs.role-to-assume }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-session-name: ${{ github.event.repository.name }}
           aws-region: ${{ inputs.region }}
 
