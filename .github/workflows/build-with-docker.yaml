@@ -103,7 +103,7 @@ jobs:
           tag=${{ inputs.tag }}
 
           if [ "${method}" == 'gitversion' ]; then
-            v="${artifact}-${{steps.gitversion.outputs.fullSemVer}}.${filename##*.}";
+            v="${artifact}-${{steps.gitversion.outputs.semVer}}.${filename##*.}";
           else
             v="${artifact}-${tag}.${filename##*.}";
           fi
@@ -160,13 +160,6 @@ jobs:
           path: ${{ inputs.target }}
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
-
-      - name: Extract branch name
-        id: extract_branch
-        shell: bash
-        run: |
-          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}";
-          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT;
 
       - name: Create tag
         uses: actions/github-script@v6
