@@ -192,5 +192,5 @@ jobs:
               console.log(`Tag '${tagName}' created and pushed successfully.`);
             } 
             else {
-              console.log('Skipping tag creation as branch name is not main or master and gitversion verion_method is not enabled');
+              console.log('Skipping tag creation as branch name is not main or master or verion_method is not gitversion');
             }
