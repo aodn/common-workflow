@@ -45,7 +45,6 @@ jobs:
     name: copy artifact from github to s3 env ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    if: ${{ github.ref_name }} == 'main' || ${{ github.ref_name }} == 'master'
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
