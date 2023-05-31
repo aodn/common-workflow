@@ -35,9 +35,10 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+#          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: 'arn:aws:iam::615645230945:oidc-provider/token.actions.githubusercontent.com'
           role-session-name: ${{ github.event.repository.name }}
           aws-region: ${{ inputs.region }}
 
