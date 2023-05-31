@@ -11,8 +11,9 @@ on:
         type: string
       environment:
         description: 'Environment of this copy'
-        required: true
-        type: string
+        required: false
+        type: environment
+        default: 'OIDC_Eval'
       region:
         description: 'The AWS deploy region'
         required: false
@@ -37,8 +38,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-#          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-to-assume: 'arn:aws:iam::615645230945:oidc-provider/token.actions.githubusercontent.com'
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-session-name: ${{ github.event.repository.name }}
           aws-region: ${{ inputs.region }}
 
