@@ -3,6 +3,13 @@ name: common_deploy_artifact_s3
 # Assume that artifact stored in GitHub and from there copy to S3
 # https://github.com/aodn/backlog/issues/4392
 
+# To share data between jobs:
+#
+# Uploading files: Give the uploaded file a name and upload the data before the job ends.
+# Downloading files: You can only download artifacts that were uploaded during the same workflow run.
+# When you download a file, you can reference it by name.
+#
+
 on:
   workflow_call:
     inputs:
@@ -20,7 +27,10 @@ on:
         required: false
         type: string
         default: 'ap-southeast-2'
-
+      s3bucket:
+        required: false
+        type: string
+        default: 'imos-artifacts'
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
@@ -39,7 +49,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: 'arn:aws:iam::615645230945:role/OIDC_Eval_Role'
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-session-name: ${{ github.event.repository.name }}
           aws-region: ${{ inputs.region }}
 
@@ -52,4 +62,4 @@ jobs:
         run: |
           aws s3 cp \
           ${{ inputs.artifact }} \
-          s3://${{ secrets.AWS_ARTIFACT_BUCKET }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
+          s3://${{ inputs.s3bucket }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
