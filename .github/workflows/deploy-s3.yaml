@@ -14,7 +14,7 @@ on:
         description: 'Environment of this copy'
         required: false
         type: string
-        default: 'OIDC_Eval'
+        default: 'Dev'
       region:
         description: 'The AWS deploy region'
         required: false
