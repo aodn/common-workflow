@@ -4,19 +4,20 @@ name: common_deploy_artifact_s3
 
 on:
   workflow_call:
-    artifact:
-      description: 'The artifact name include version and extension'
-      required: true
-      type: string
-    environment:
-      description: 'Environment of this copy'
-      required: true
-      type: string
-    region:
-      description: 'The AWS deploy region'
-      required: false
-      type: string
-      default: 'ap-southeast-2'
+    inputs:
+      artifact:
+        description: 'The artifact name include version and extension'
+        required: true
+        type: string
+      environment:
+        description: 'Environment of this copy'
+        required: true
+        type: string
+      region:
+        description: 'The AWS deploy region'
+        required: false
+        type: string
+        default: 'ap-southeast-2'
 
 concurrency:
   group: ${{ github.ref }}
