@@ -31,6 +31,10 @@ on:
         required: false
         type: string
         default: 'imos-artifacts'
+    secrets:
+      role-to-assume:
+        required: true
+
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
@@ -49,7 +53,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.role-to-assume }}
           role-session-name: ${{ github.event.repository.name }}
           aws-region: ${{ inputs.region }}
 
