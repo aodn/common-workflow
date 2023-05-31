@@ -9,7 +9,9 @@ name: common_build_with_docker
 # on:
 #  push:
 #    branches:
-#      - raymond-playground
+#      - feature/*
+#      - master/*
+#      - main/*
 #
 # jobs:
 #  build-upload:
@@ -174,7 +176,7 @@ jobs:
             const branchName = context.payload.ref;
             const tagName = ${{steps.gen_artifact_name.outputs.fullSemVer}};
             
-            if (${{ inputs.version_method }} === 'gitversion' && (branchName === 'refs/heads/main' || branchName === 'refs/heads/master')) {
+            if ('${{ inputs.version_method }}' === 'gitversion' && (branchName === 'refs/heads/main' || branchName === 'refs/heads/master')) {
               const { data: commit } = await github.git.getCommit({
                 ...context.repo,
                 commit_sha: context.sha
