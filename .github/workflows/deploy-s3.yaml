@@ -61,6 +61,7 @@ jobs:
           aws-region: ${{ inputs.region }}
 
       - name: Download artifact
+        id: download-artifact
         uses: actions/download-artifact@v3
         with:
           name: ${{ inputs.artifact }}
@@ -71,5 +72,5 @@ jobs:
       - name: Copy artifact action
         run: >
           aws s3 cp
-          ${{ inputs.artifact }}  
+          ${{ steps.download-artifact.outputs.download-path }}  
           s3://${{ inputs.s3bucket }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
