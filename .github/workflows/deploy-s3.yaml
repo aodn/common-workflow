@@ -60,13 +60,11 @@ jobs:
           role-session-name: ${{ github.event.repository.name }}
           aws-region: ${{ inputs.region }}
 
-      - name: Download artifact
+      - name: Download and copy artifact
         uses: actions/download-artifact@v3
         with:
           name: ${{ inputs.artifact }}
           path: /tmp
-
-      - name: Copy artifact action
         run: >
           aws s3 cp
           /tmp/${{ inputs.artifact }}  
