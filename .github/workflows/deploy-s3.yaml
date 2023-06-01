@@ -9,6 +9,9 @@ name: common_deploy_artifact_s3
 # Downloading files: You can only download artifacts that were uploaded during the same workflow run.
 # When you download a file, you can reference it by name.
 #
+# May be easier to do this:
+# https://docs.github.com/en/enterprise-server@3.5/admin/github-actions/enabling-github-actions-for-github-enterprise-server/enabling-github-actions-with-amazon-s3-storage
+
 
 on:
   workflow_call:
@@ -63,9 +66,7 @@ jobs:
           name: ${{ inputs.artifact }}
 
       - name: Copy artifact action
-        uses: aws-actions/aws-cli@v2
-        with:
-          aws-cli-command: |        
-            aws s3 cp \
-            ${{ inputs.artifact }} \
-            s3://${{ inputs.s3bucket }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
+        run: |
+          aws s3 cp \
+          ${{ inputs.artifact }} \
+          s3://${{ inputs.s3bucket }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
