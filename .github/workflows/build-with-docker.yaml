@@ -58,6 +58,8 @@ on:
         required: false
         type: number
         default: 14
+    outputs:
+      artifact_name: ${{ jobs.build.outputs.artifact_name }}
 
 concurrency:
   group: ${{ github.ref }}
