@@ -59,7 +59,9 @@ on:
         type: number
         default: 14
     outputs:
-      artifact_name: ${{ jobs.build.outputs.artifact_name }}
+      artifact_name:
+        description: 'The generated name based on version_method'
+        value: ${{ jobs.build.outputs.artifact_name }}
 
 concurrency:
   group: ${{ github.ref }}
