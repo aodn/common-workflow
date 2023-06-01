@@ -7,7 +7,7 @@
 | --- | ---- |
 | .github/workflows | common workflow files |
 | dockers | pre-defined docker files from DevOps, other repo can use this to achive standard container build |
-
+---
 ## Samples
 Below provide few sample for other repo to copy and use, feel free to modify if it didn't fit.
 
@@ -38,7 +38,9 @@ jobs:
       cmd: mvn -f ogc-api clean package
       # Your output file path and name, change it
       target: ogc-api/target/ogc-api-0.0.1-SNAPSHOT.jar
-
+      
+  # By default, copy to imos-artifact-test in test env, use 
+  # input parameter to change this behavior
   copy-to-s3:
     name: Deploy S3
     needs: [build-upload]
@@ -53,5 +55,13 @@ jobs:
 
 
 ```
+----
+## Versioning
+1. The version format is major.minor.x
+2. x wil increase on evey PR merged to main/master and new tag created on main/master
+3. You can add message in PR to increase the major or minor version 
+   * +semver: major to increase the major version by 1
+   * +semver: minor to increase the minor version by 1
+4. For branch build, it will be always the tag major.minor.(x+1).YOUR_BRANCH_NAME.meta-number
 
 
