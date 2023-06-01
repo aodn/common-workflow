@@ -33,7 +33,7 @@ on:
       s3bucket:
         required: false
         type: string
-        default: 'imos-artifacts'
+        default: 'imos-artifacts-test'
     secrets:
       role-to-assume:
         required: true
