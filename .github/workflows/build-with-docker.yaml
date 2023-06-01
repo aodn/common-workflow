@@ -155,13 +155,20 @@ jobs:
             git clean --force --force -xd --exclude=web/node_modules
             ${{ inputs.cmd }}
           '
+      # Rename it as the build output name will not match the generated version name,
+      # the artifact upload will keep artifact name as is, so when you download it
+      # it will be different from the generated version name
+      - name: Rename artifact
+        run: |
+          mkdir artifact
+          cp ${{ inputs.target }} ./artifact/${{ steps.gen_artifact_name.outputs.artifactVer }}
 
       - name: Upload artifact name ${{ steps.gen_artifact_name.outputs.artifactVer }}
         id: upload-artifact
         uses: actions/upload-artifact@v3
         with:
           name: "${{ steps.gen_artifact_name.outputs.artifactVer }}"
-          path: ${{ inputs.target }}
+          path: ./artifact/${{ steps.gen_artifact_name.outputs.artifactVer }}
           retention-days: ${{ inputs.keep_days }}        # Same as repo setting
           if-no-files-found: error                       # 'warn' or 'ignore' are also available, defaults to `warn`
 

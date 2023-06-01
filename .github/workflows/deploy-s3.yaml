@@ -65,12 +65,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: ${{ inputs.artifact }}
-
-      - name: List
-        run: ls -R
+          path: artifact
 
       - name: Copy artifact action
         run: >
           aws s3 cp
-          ${{ steps.download-artifact.outputs.download-path }}  
+          ${{ steps.download-artifact.outputs.download-path }}/${{ inputs.artifact }}
           s3://${{ inputs.s3bucket }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
