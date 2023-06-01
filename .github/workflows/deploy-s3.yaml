@@ -63,7 +63,9 @@ jobs:
           name: ${{ inputs.artifact }}
 
       - name: Copy artifact action
-        run: |
-          aws s3 cp \
-          ${{ inputs.artifact }} \
-          s3://${{ inputs.s3bucket }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
+        uses: aws-actions/aws-cli@v2
+        with:
+          aws-cli-command: |        
+            aws s3 cp \
+            ${{ inputs.artifact }} \
+            s3://${{ inputs.s3bucket }}/promoted/${{ github.event.repository.name }}/build/${{ inputs.artifact }}
