@@ -1,0 +1,161 @@
+name: AI code review
+
+# Advisory AI code review for a pull request, posted as a PR comment. It never
+# blocks merging. See ai-code-review/README.md for usage, inputs and security.
+#
+# Scripts come from this workflow's own commit (job.workflow_sha). The review
+# prompt, instructions and agent overlay come from the PR head of the calling
+# repository, so only same-repository PRs are reviewed: fork PRs are skipped.
+# https://github.com/aodn/backlog/issues/9370
+
+on:
+  workflow_call:
+    inputs:
+      pr-number:
+        description: Pull request to review
+        required: true
+        type: number
+      engine:
+        description: Review engine, a folder under ai-code-review/engines/ (e.g. kiro)
+        required: true
+        type: string
+      model:
+        description: Model id; empty uses the engine account default
+        required: false
+        type: string
+        default: ""
+      prompt-file:
+        description: Review direction ("What to review", "How to judge"), in the PR head
+        required: false
+        type: string
+        default: .github/ai-code-review/prompt.md
+      instruction-files:
+        description: Newline-separated repository guidance files, in the PR head, joined in order
+        required: false
+        type: string
+        default: .github/ai-code-review/instructions.md
+      agent-file:
+        description: Optional engine-format overlay on the engine's base agent, in the PR head
+        required: false
+        type: string
+        default: ""
+      exclude-paths:
+        description: Newline-separated globs left out of the diff
+        required: false
+        type: string
+        default: |
+          **/*.lock
+          **/package-lock.json
+          **/pnpm-lock.yaml
+          **/dist/**
+          **/*.min.js
+          **/*.map
+          **/*.snap
+          **/*.png
+          **/*.jpg
+          **/*.svg
+      max-diff-bytes:
+        description: Diff truncation limit in bytes
+        required: false
+        type: number
+        default: 150000
+    secrets:
+      ai-code-review-api-key:
+        description: Engine API key; if absent the review is skipped
+        required: false
+    outputs:
+      status:
+        description: ok | empty | skipped | failed
+        value: ${{ jobs.review.outputs.status }}
+      credits:
+        description: Credits the engine reported, if any
+        value: ${{ jobs.review.outputs.credits }}
+
+permissions: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      status: >-
+        ${{ steps.pr.outputs.same_repo == 'false' && 'skipped' ||
+            steps.pr.outputs.has_key == 'false' && 'skipped' ||
+            steps.review.outputs.status || 'failed' }}
+      credits: ${{ steps.review.outputs.credits }}
+    env:
+      TOOLS: ${{ github.workspace }}/.ai-code-review/tools/ai-code-review
+      AI_CODE_REVIEW_REPO_DIR: ${{ github.workspace }}/.ai-code-review/pr
+      AI_CODE_REVIEW_ENGINE_NAME: ${{ inputs.engine }}
+
+    steps:
+      # pull_request_target would run with secrets and a write token on fork
+      # PRs, whose head controls the prompt and agent overlay.
+      - name: Refuse pull_request_target
+        if: github.event_name == 'pull_request_target'
+        run: |
+          echo "::error title=AI review::Do not call this workflow from pull_request_target; use pull_request."
+          exit 1
+
+      - name: Check out review scripts
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .ai-code-review/tools
+          sparse-checkout: ai-code-review
+          persist-credentials: false
+
+      # PR fields are only read from pr.json by scripts, never interpolated
+      # with ${{ }}, so a crafted title or body cannot inject shell.
+      - name: Resolve pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          HAS_KEY: ${{ secrets.ai-code-review-api-key != '' }}
+        run: |
+          export AI_CODE_REVIEW_WORK_DIR="$RUNNER_TEMP/ai-code-review"
+          echo "AI_CODE_REVIEW_WORK_DIR=$AI_CODE_REVIEW_WORK_DIR" >>"$GITHUB_ENV"
+          "$TOOLS/resolve-pr.sh"
+
+      # Credentials are not persisted, so the agent cannot find a token on disk.
+      # Fork PR code is never checked out.
+      - name: Check out pull request head
+        if: steps.pr.outputs.same_repo == 'true' && steps.pr.outputs.has_key == 'true'
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          path: .ai-code-review/pr
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Inputs reach the scripts as environment variables, never as ${{ }} in
+      # the script body.
+      - name: Run review
+        id: review
+        if: steps.pr.outputs.same_repo == 'true' && steps.pr.outputs.has_key == 'true'
+        env:
+          AI_CODE_REVIEW_API_KEY: ${{ secrets.ai-code-review-api-key }}
+          AI_CODE_REVIEW_MODEL: ${{ inputs.model }}
+          AI_CODE_REVIEW_PROMPT_FILE: ${{ inputs.prompt-file }}
+          AI_CODE_REVIEW_INSTRUCTION_FILES: ${{ inputs.instruction-files }}
+          AI_CODE_REVIEW_AGENT_FILE: ${{ inputs.agent-file }}
+          AI_CODE_REVIEW_EXCLUDE_PATHS: ${{ inputs.exclude-paths }}
+          AI_CODE_REVIEW_MAX_DIFF_BYTES: ${{ inputs.max-diff-bytes }}
+        run: |
+          "$TOOLS/review.sh"
+
+      - name: Publish review
+        if: ${{ !cancelled() && steps.pr.outputs.same_repo == 'true' && steps.pr.outputs.head_sha != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          CREDITS: ${{ steps.review.outputs.credits }}
+          STATUS: ${{ steps.pr.outputs.has_key != 'true' && 'skipped' || steps.review.outputs.status || 'failed' }}
+        run: |
+          "$TOOLS/publish.sh"

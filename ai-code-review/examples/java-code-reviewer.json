@@ -1,0 +1,16 @@
+{
+  "name": "Java code reviewer",
+  "prompt": "The repository is a Java 17 Spring Boot service; pay extra attention to transaction boundaries and Elasticsearch query construction.",
+  "tools": [
+    "read",
+    "grep",
+    "glob"
+  ],
+  "toolsSettings": {
+    "read": {
+      "deniedPaths": [
+        "**/src/test/resources/secrets/**"
+      ]
+    }
+  }
+}
