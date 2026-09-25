@@ -288,6 +288,12 @@ check "the engine API key is withheld" has "$repo.review/stdout" "status=failed"
 review "$repo" "exit 3"
 check "an engine failure is failed" has "$repo.review/stdout" "status=failed"
 
+review "$repo" "echo credits=0.5"
+check "no review.md is failed" has "$repo.review/stdout" "status=failed"
+check "no review.md is reported" has "$repo.review/log" "produced no review"
+review "$repo" "$(writes "   ")"
+check "a blank review.md is failed" has "$repo.review/stdout" "status=failed"
+
 AI_CODE_REVIEW_ENGINE_OVERRIDE=/nonexistent review "$repo" "true"
 check "a missing engine is failed" has "$repo.review/stdout" "status=failed"
 check "a missing engine is reported" has "$repo.review/log" "No executable review engine"

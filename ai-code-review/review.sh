@@ -71,6 +71,8 @@ elif ! stage_overlay; then
   echo "::error title=AI review::Could not stage the agent file."
 elif ! timeout 15m "$engine" | tee "$engine_out"; then
   echo "::error title=AI review::The review engine failed or timed out."
+elif ! grep -q '[^[:space:]]' "$review" 2>/dev/null; then
+  echo "::error title=AI review::The review engine produced no review."
 elif [[ -n "${AI_CODE_REVIEW_API_KEY:-}" ]] && grep -qF -- "$AI_CODE_REVIEW_API_KEY" "$review"; then
   echo "::error title=AI review::The review contained the engine API key and was withheld."
 elif match="$(grep -oE -m1 "$credential" "$review")"; then
