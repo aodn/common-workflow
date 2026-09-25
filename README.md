@@ -7,6 +7,7 @@
 | --- | ---- |
 | .github/workflows | common workflow files |
 | dockers | pre-defined docker files from DevOps, other repo can use this to achive standard container build |
+| ai-code-review | scripts for the shared AI code review workflow (`ai-code-review.yaml`); see [ai-code-review/README.md](ai-code-review/README.md) |
 ---
 ## Samples
 Below provide few sample for other repo to copy and use, feel free to modify if it didn't fit.

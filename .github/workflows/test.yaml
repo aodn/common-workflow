@@ -1,0 +1,25 @@
+name: test
+
+# Tests for this repository's own tooling. Add steps per tool.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Shell Check
+        run: shellcheck ai-code-review/*.sh ai-code-review/engines/*/run.sh
+
+      - name: Test AI code review
+        run: ai-code-review/test.sh
