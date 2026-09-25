@@ -9,6 +9,22 @@
 | dockers | pre-defined docker files from DevOps, other repo can use this to achive standard container build |
 | ai-code-review | scripts for the shared AI code review workflow (`ai-code-review.yaml`); see [ai-code-review/README.md](ai-code-review/README.md) |
 ---
+## AI code review
+A shared, advisory AI review of pull requests, posted as a PR comment. It is
+released separately from the other workflows, with `ai-code-review-vX.Y.Z`
+tags. Callers use the floating major tag, which always points to the latest
+`v1.x.x`:
+
+```yaml
+uses: aodn/common-workflow/.github/workflows/ai-code-review.yaml@ai-code-review-v1
+```
+
+To release, push a tag such as `ai-code-review-v1.2.0` on `main`; the
+`ai-code-review-release.yaml` workflow moves `ai-code-review-v1` to it. See
+[ai-code-review/README.md](ai-code-review/README.md) for setup, inputs and
+[versioning](ai-code-review/README.md#versioning).
+
+---
 ## Samples
 Below provide few sample for other repo to copy and use, feel free to modify if it didn't fit.
 

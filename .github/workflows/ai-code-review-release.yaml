@@ -1,0 +1,33 @@
+name: AI code review release
+
+# Pushing ai-code-review-vX.Y.Z moves the floating ai-code-review-vX tag to the
+# same commit, so callers pinned to @ai-code-review-vX get the release. See
+# ai-code-review/README.md#versioning.
+
+on:
+  push:
+    tags: ["ai-code-review-v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  move-major-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # The tag name reaches the script as an environment variable, never as
+      # ${{ }} in the script body.
+      - name: Move major tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$TAG" =~ ^ai-code-review-v([0-9]+)\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error title=AI code review release::'$TAG' is not ai-code-review-vX.Y.Z."
+            exit 1
+          }
+          major="ai-code-review-v${BASH_REMATCH[1]}"
+          git tag -f "$major" "$(git rev-parse "$TAG^{commit}")"
+          git push -f origin "refs/tags/$major"
+          echo "::notice title=AI code review release::$major now points to $TAG."

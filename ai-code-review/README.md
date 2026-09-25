@@ -62,7 +62,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: aodn/common-workflow/.github/workflows/ai-code-review.yaml@main
+    uses: aodn/common-workflow/.github/workflows/ai-code-review.yaml@ai-code-review-v1
     with:
       pr-number: ${{ github.event.pull_request.number || inputs.pr-number }}
       engine: kiro
@@ -80,9 +80,57 @@ review from `pull_request_target`; the workflow refuses it.
 The files are read from the PR head, so the PR that adds them is already
 reviewed with them. The check is named `Code Review / review`.
 
-**Pinning:** `@main` picks up common-workflow changes immediately, which suits
-an advisory check. Each run still uses one fixed commit (`job.workflow_sha`)
-for all its scripts. To control upgrades, pin a commit SHA instead of `@main`.
+**Pinning:** `@ai-code-review-v1` picks up every compatible release; see
+[Versioning](#versioning) for the other choices.
+
+## Versioning
+
+Releases are tagged `ai-code-review-vX.Y.Z`; the prefix keeps them apart from
+the other workflows in this repository. Each run checks out its scripts at the
+commit the caller's ref resolved to (`job.workflow_sha`), so the workflow and
+its scripts always come from the same release.
+
+| Caller ref                          | Gets                                                      |
+| ----------------------------------- | --------------------------------------------------------- |
+| `@ai-code-review-v1` (recommended)  | The latest `v1.x.x`: fixes and features, never a breaking change |
+| `@ai-code-review-v1.2.0`            | Exactly that release                                      |
+| a commit SHA                        | Exactly that commit, immune to any tag being moved        |
+| `@main`                             | Unreleased changes; only for testing this workflow        |
+
+Version numbers follow semantic versioning:
+
+- **Patch** (`v1.2.1`): fixes, prompt wording, engine upgrades.
+- **Minor** (`v1.3.0`): new optional inputs, outputs or engines.
+- **Major** (`v2.0.0`): anything a caller must change for, such as a removed or
+  renamed input, output or secret, a changed default path, or tighter caller
+  requirements. `v1` callers stay on `v1` until they switch.
+
+### Releasing
+
+1. Merge the changes to `main`.
+2. Tag the release and push the tag:
+
+   ```bash
+   git switch main && git pull
+   git tag ai-code-review-v1.2.0
+   git push origin ai-code-review-v1.2.0
+   ```
+
+3. `.github/workflows/ai-code-review-release.yaml` moves `ai-code-review-v1` to
+   the same commit. A new major version creates its floating tag the same way.
+
+If that workflow fails with *"refusing to allow a GitHub App to create or update
+workflow"* (GitHub can refuse `GITHUB_TOKEN` a tag move across workflow file
+changes), move the tag by hand:
+
+```bash
+git tag -f ai-code-review-v1 ai-code-review-v1.2.0
+git push -f origin refs/tags/ai-code-review-v1
+```
+
+Never move or delete an `ai-code-review-vX.Y.Z` tag once pushed; release a new
+version instead. A repository tag ruleset can enforce this and limit who may
+move the `ai-code-review-vX` tags.
 
 ## Inputs
 
