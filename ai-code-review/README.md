@@ -15,10 +15,11 @@ credential, review prompt and instructions.
 
 ## Adopting it in a repository
 
-1. Add `.github/ai-code-review/prompt.md`, the review direction for your code: what
-   to look for and how to judge it. Start from
-   [`examples/review-prompt.md`](examples/review-prompt.md). Don't include
-   the sandbox, untrusted-content or output-format sections; the shared
+1. Add `.github/ai-code-review/prompt.md` with review direction specific to your
+   repository. The shared workflow already supplies the baseline review
+   priorities and evidence rules, so don't repeat them. Start from
+   [`examples/review-prompt.md`](examples/review-prompt.md). Don't include the
+   sandbox, untrusted-content or output-format sections either; the shared
    workflow adds those.
 2. Optionally add `.github/ai-code-review/instructions.md` with repository context
    and conventions. `instruction-files` can also point at existing docs such
@@ -167,14 +168,21 @@ anything else fails the review.
 The prompt is assembled in this order:
 
 1. [`prompt/header.md`](prompt/header.md) (shared): the reviewer's role and the sandbox.
-2. The caller's `prompt-file`: what to review and how to judge.
-3. `## Repository-specific guidance`: the caller's `instruction-files`.
-4. [`prompt/footer.md`](prompt/footer.md) (shared): untrusted-content rules and the
+2. [`prompt/review-rules.md`](prompt/review-rules.md) (shared): the baseline
+   review rules for every repository: what to review and in which priority
+   (bugs, regressions, security, missing tests, duplicate implementations),
+   how to judge, and how to check that new code does not duplicate an
+   existing function or component. A caller's prompt doesn't repeat them;
+   `instruction-files` can say where reusable code lives.
+3. The caller's `prompt-file`: repository-specific review direction, added to
+   the baseline.
+4. `## Repository-specific guidance`: the caller's `instruction-files`.
+5. [`prompt/footer.md`](prompt/footer.md) (shared): untrusted-content rules and the
    output format that `publish.sh` and the engine rely on.
-5. The PR title, description, changed files and diff, inside a randomly named
+6. The PR title, description, changed files and diff, inside a randomly named
    untrusted-content tag.
 
-`{{REPOSITORY}}`, `{{REPO_DIR}}` and `{{HEAD_SHA}}` are replaced in parts 1–4.
+`{{REPOSITORY}}`, `{{REPO_DIR}}` and `{{HEAD_SHA}}` are replaced in parts 1–5.
 
 ## Security
 
@@ -190,8 +198,9 @@ leak a credential into the public comment, or to run code with one.
   from the PR.
 - Config files are read with `git show <head>:<path>`, so a committed
   symlink is never followed into runner files.
-- The shared header and footer (untrusted-content rules, output format) and
-  the engine's sandbox can't be overridden by a project.
+- The shared header, review rules and footer (baseline review rules,
+  untrusted-content rules, output format) and the engine's sandbox can't be
+  overridden by a project.
 - Checkouts don't persist credentials. The API key is only in the review
   step, and the GitHub token is only in steps that run no agent.
 - Output containing the key, or anything that looks like a credential, is

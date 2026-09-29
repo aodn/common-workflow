@@ -108,9 +108,13 @@ done <<<"$instruction_files"
 # A random tag, so PR content cannot forge the end of the untrusted block.
 tag="untrusted-pr-content-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
 
-# Header and footer are shared: they describe the sandbox, the untrusted-content
-# rules and the output contract, which projects cannot override.
+# Header, review rules and footer are shared: they describe the sandbox, the
+# baseline review rules for every repository, the untrusted-content rules and
+# the output contract, which projects cannot override. The project files come
+# after the review rules and add repository-specific direction to them.
 prompt="$(cat "$here/prompt/header.md")
+
+$(cat "$here/prompt/review-rules.md")
 
 ${project_prompt}
 

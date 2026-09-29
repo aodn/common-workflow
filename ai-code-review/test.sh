@@ -109,17 +109,23 @@ prepare "$repo" main pr
 check "includes the PR's change" has "$repo.out/prompt.md" "src/feature.ts"
 check "excludes commits that landed on main later" lacks "$repo.out/prompt.md" "landed on main after"
 
-echo "prompt assembly: shared header and footer around the project files"
+echo "prompt assembly: shared header and review rules, project files, shared footer"
 repo="$(new_repo assembly)"
 commit "$repo" .github/ai-code-review/instructions.md "INSTRUCTIONS ONE"
 git -C "$repo" checkout -q -b pr
 commit "$repo" src/a.ts "export const a = 1;"
 prepare "$repo" main pr
-check "order: header, project prompt, instructions, footer, PR block" in_order "$repo.out/prompt.md" \
-  "## What you have" "PROJECT PROMPT" "## Repository-specific guidance" "INSTRUCTIONS ONE" \
+check "order: header, review rules, project prompt, instructions, footer, PR block" in_order "$repo.out/prompt.md" \
+  "## What you have" "## Shared review rules" "### Duplicate implementations" \
+  "PROJECT PROMPT" "## Repository-specific guidance" "INSTRUCTIONS ONE" \
   "## Untrusted content" "## Output format" "## Pull request #7" "</untrusted-pr-content-"
 check "placeholders are substituted in the project prompt" has "$repo.out/prompt.md" "PROJECT PROMPT for o/r"
 check "placeholders are substituted in the shared header" lacks "$repo.out/prompt.md" "{{REPO_DIR}}"
+check "the shared rules preserve the core review priorities" in_order "$repo.out/prompt.md" \
+  "### What to review" "**Bugs**" "**Regressions**" "**Security**" "**Missing tests**" \
+  "**Duplicate implementations**" "### How to judge"
+check "the duplicate check searches the PR checkout" has "$repo.out/prompt.md" "search \`$repo\`"
+check "the review rules appear once" test "$(grep -c "## Shared review rules" "$repo.out/prompt.md")" = 1
 
 echo "project files come from the PR head, so a PR's config changes apply"
 repo="$(new_repo head-config)"
