@@ -224,11 +224,16 @@ change the orchestration.
 ### Kiro engine
 
 `engines/kiro/run.sh` installs a pinned kiro-cli into a private `KIRO_HOME`
-and runs it from an empty directory, so a PR's own `.kiro/` agents, hooks and
-MCP servers never load. The agent can only use `read`, `glob` and `grep`, with
-`deniedPaths` covering `/proc`, `/etc`, home dotfiles, runner directories and
-`.git`. Kiro's `allowedPaths` and `--trust-tools` do not restrict reads, so
-they are not relied on.
+and runs the V3 agent engine. The agent's workspace is a copy of the
+checkout's HEAD commit with no `.git`, untracked files, symlinks or `.kiro/`
+directories, so a PR's own agents, hooks, steering and settings never load.
+The agent can only use Kiro's read-only file tools (read, search, list). Its
+`permissions` allow reads inside the copy and deny `.env` files. Reads
+outside the copy fail, because a headless run cannot answer Kiro's approval
+prompt. `--trust-tools` and `--trust-all-tools` would override the deny rules,
+so they are never passed. Custom agents skip default resources (root
+`AGENTS.md`, steering, skills), but Kiro still adds an `AGENTS.md` from a
+directory the agent reads in. That is PR content, like the prompt files.
 
 - Secret: a Kiro API key
   ([docs](https://kiro.dev/docs/getting-started/authentication/#api-key-authentication-cli)),
@@ -238,26 +243,31 @@ they are not relied on.
   [`examples/java-code-reviewer.json`](examples/java-code-reviewer.json)) is merged onto
   [`engines/kiro/code-reviewer.json`](engines/kiro/code-reviewer.json):
 
-  | Overlay key                                | Effect                                      |
-  | ------------------------------------------ | ------------------------------------------- |
-  | `prompt`                                   | Appended after the base prompt              |
-  | `description`, `model`                     | Replace the base value                      |
-  | `tools`, `allowedTools`                    | Narrow the base `read`/`glob`/`grep` only   |
-  | `toolsSettings.{read,glob,grep}.deniedPaths` | Added to the base and runtime denied paths |
-  | anything else (`hooks`, `mcpServers`, ...) | Ignored, with a warning                     |
+  | Overlay key                                  | Effect                                       |
+  | -------------------------------------------- | -------------------------------------------- |
+  | `prompt`                                     | Appended after the base prompt               |
+  | `description`, `model`                       | Replace the base value                       |
+  | `tools`                                      | Narrows the base `read`/`glob`/`grep` only   |
+  | `permissions.rules` with `"effect": "deny"`  | Added to the base rules; relative globs are anchored at the repository root |
+  | other rules, and anything else (`hooks`, `mcpServers`, `toolsSettings`, ...) | Ignored, with a warning |
 
   Invalid JSON, or JSON that isn't an object, fails the review.
 
 #### Upgrading kiro-cli
 
 `engines/kiro/run.sh` pins a kiro-cli release because the review depends on
-Kiro's flags and event format. To upgrade, check the latest version, update
+Kiro's flags, permission model and event format. To upgrade, check the latest version, update
 `kiro_version`, and run the tests:
 
 ```bash
 curl -fsSL https://prod.download.cli.kiro.dev/stable/latest/manifest.json |
   jq -r '.version'
 ```
+
+After an upgrade, run one real review on a throwaway PR that plants a
+committed `.env`, an untracked file, a symlink out of the checkout and a
+`.kiro/` directory, and check that none of them reach `events.jsonl`. Credits
+come from the last `session_usage` update in the event stream.
 
 If Kiro's final event disappears, `run.sh` falls back to the standard Agent
 Client Protocol message chunks and prints a warning.
