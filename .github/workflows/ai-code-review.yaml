@@ -70,6 +70,9 @@ on:
       credits:
         description: Credits the engine reported, if any
         value: ${{ jobs.review.outputs.credits }}
+      model:
+        description: Model the engine selected for the review, if any
+        value: ${{ jobs.review.outputs.model }}
 
 permissions: {}
 
@@ -86,6 +89,7 @@ jobs:
             steps.pr.outputs.has_key == 'false' && 'skipped' ||
             steps.review.outputs.status || 'failed' }}
       credits: ${{ steps.review.outputs.credits }}
+      model: ${{ steps.review.outputs.model }}
     env:
       TOOLS: ${{ github.workspace }}/.ai-code-review/tools/ai-code-review
       AI_CODE_REVIEW_REPO_DIR: ${{ github.workspace }}/.ai-code-review/pr
@@ -156,6 +160,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr-number }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           CREDITS: ${{ steps.review.outputs.credits }}
+          MODEL: ${{ steps.review.outputs.model }}
           STATUS: ${{ steps.pr.outputs.has_key != 'true' && 'skipped' || steps.review.outputs.status || 'failed' }}
         run: |
           "$TOOLS/publish.sh"

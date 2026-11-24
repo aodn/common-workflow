@@ -7,7 +7,8 @@
 #         AI_CODE_REVIEW_API_KEY        Kiro API key (passed to kiro-cli as KIRO_API_KEY)
 #         AI_CODE_REVIEW_MODEL          optional model id
 #         AI_CODE_REVIEW_AGENT_OVERLAY  optional project overlay on code-reviewer.json
-#   Out:  $AI_CODE_REVIEW_WORK_DIR/review.md, and "credits=<n>" on stdout
+#   Out:  $AI_CODE_REVIEW_WORK_DIR/review.md, and "credits=<n>" and
+#         "model=<id>" (the selected model) on stdout
 #   Exit: 0 on success
 #
 set -euo pipefail
@@ -129,3 +130,8 @@ grep -q '[^[:space:]]' "$AI_CODE_REVIEW_WORK_DIR/review.md" || { echo "Empty rev
 # The session's running total is in its last session_usage update.
 echo "credits=$(jq -rs '[.[] | .data.update._meta.kiro? | select(.kind? == "session_usage") | .credits]
   | last // [] | map(.usage) | add // empty | . * 100 | round / 100' "$events")"
+# The selected model is in the session's last config_option_update ("auto"
+# when the account default routes by task).
+model="$(jq -rs '[.[] | .data.update? | select(.sessionUpdate? == "config_option_update")
+  | .configOptions[]? | select(.id? == "model") | .currentValue | strings] | last // empty' "$events" || true)"
+echo "model=$model"

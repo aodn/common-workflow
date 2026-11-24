@@ -147,7 +147,7 @@ move the `ai-code-review-vX` tags.
 | `max-diff-bytes`    | `150000`                            | Larger diffs are truncated and the review says it is partial                                        |
 
 Secret `ai-code-review-api-key` (optional). Outputs: `status` (`ok`, `empty`, `skipped`,
-`failed`) and `credits`.
+`failed`), `credits` and `model`.
 
 File inputs must be repository-relative paths (`[A-Za-z0-9._/-]`, no `..`);
 anything else fails the review.
@@ -216,7 +216,8 @@ change the orchestration.
   (optional), and `AI_CODE_REVIEW_AGENT_OVERLAY` (optional, the staged
   `agent-file` in the engine's own format).
 - **Writes:** a non-empty `$AI_CODE_REVIEW_WORK_DIR/review.md` (the text inside
-  `<review>` tags); may print `credits=<n>`; exits non-zero on failure.
+  `<review>` tags); may print `credits=<n>` and `model=<id>` (the selected
+  model); exits non-zero on failure.
 - **Must:** ship its base agent/sandbox config in `engines/<name>/`, enforce
   the sandbox over any overlay, and run the agent read-only, isolated from
   the checkout's own agent config.
@@ -238,7 +239,9 @@ directory the agent reads in. That is PR content, like the prompt files.
 - Secret: a Kiro API key
   ([docs](https://kiro.dev/docs/getting-started/authentication/#api-key-authentication-cli)),
   which needs a Kiro Pro or higher subscription. A ~20 KB diff costs 1–3
-  credits; each comment shows its cost.
+  credits; each comment shows the selected model and the cost. The model is
+  the one the session reports selecting, so it reads `auto` when the account
+  default routes by task.
 - **Agent overlay** (`agent-file`, see
   [`examples/java-code-reviewer.json`](examples/java-code-reviewer.json)) is merged onto
   [`engines/kiro/code-reviewer.json`](engines/kiro/code-reviewer.json):

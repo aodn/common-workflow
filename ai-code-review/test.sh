@@ -262,7 +262,7 @@ review() {
   chmod +x "$out/engine.sh"
   AI_CODE_REVIEW_REPO_DIR="$1" AI_CODE_REVIEW_WORK_DIR="$out" \
     AI_CODE_REVIEW_ENGINE="${AI_CODE_REVIEW_ENGINE_OVERRIDE-$out/engine.sh}" AI_CODE_REVIEW_API_KEY="${3:-}" \
-    GITHUB_OUTPUT="$out/stdout" "${REVIEW_SH:-$here/review.sh}" >"$out/log" 2>&1
+    AI_CODE_REVIEW_MODEL="${4-${AI_CODE_REVIEW_MODEL:-}}" GITHUB_OUTPUT="$out/stdout" "${REVIEW_SH:-$here/review.sh}" >"$out/log" 2>&1
 }
 # writes <text>: an engine body that writes <text> as the review.
 writes() { printf "printf '%%s\\\\n' '%s' >\"\$AI_CODE_REVIEW_WORK_DIR/review.md\"; echo credits=0.5" "$1"; }
@@ -276,6 +276,15 @@ commit "$repo" src/a.ts "export const a = 1;"
 review "$repo" "$(writes "Looks good.")"
 check "clean review is ok" has "$repo.review/stdout" "status=ok"
 check "credits are passed through" has "$repo.review/stdout" "credits=0.5"
+check "no model reported or requested is empty" grep -qx "model=" "$repo.review/stdout"
+review "$repo" "$(writes ok); echo model=claude-x-1"
+check "the engine's model is passed through" has "$repo.review/stdout" "model=claude-x-1"
+review "$repo" "$(writes ok); echo 'model=a b|<img>'"
+check "a model with unsafe characters is dropped" grep -qx "model=" "$repo.review/stdout"
+review "$repo" "$(writes "Looks good.")" "" m-req
+check "a completed review falls back to the requested model" has "$repo.review/stdout" "model=m-req"
+review "$repo" "exit 3" "" m-req
+check "a failed review names no requested model" grep -qx "model=" "$repo.review/stdout"
 
 review "$repo" "$(writes "Looks good.")" ""
 check "no API key set (local run) is still ok" has "$repo.review/stdout" "status=ok"
@@ -331,6 +340,8 @@ commit "$repo" yarn.lock "lockfile"
 review "$repo" "$(ran)"
 check "an empty diff is empty" has "$repo.review/stdout" "status=empty"
 check "the engine is not called for an empty diff" test ! -e "$repo.review/engine-ran"
+review "$repo" "$(ran)" "" m-req
+check "an empty diff names no model, even when one is requested" grep -qx "model=" "$repo.review/stdout"
 
 echo "review.sh: engines are chosen by name (a second, non-Kiro engine)"
 tools="$tmp/tools"
@@ -351,6 +362,7 @@ REVIEW_SH="$tools/review.sh" AI_CODE_REVIEW_ENGINE_OVERRIDE="" AI_CODE_REVIEW_EN
 check "the fake engine runs end to end" has "$repo.review/stdout" "status=ok"
 check "the fake engine's credits are passed through" has "$repo.review/stdout" "credits=1"
 check "the fake engine gets the model" has "$repo.review/review.md" "model m1"
+check "a silent engine reports the requested model" has "$repo.review/stdout" "model=m1"
 
 echo "review.sh: the agent overlay is staged from the PR head"
 repo="$(new_repo overlay-stage)"
@@ -384,7 +396,7 @@ case "\$args" in
 esac
 STUB
   chmod +x "$out/bin/gh"
-  PATH="$out/bin:$PATH" STATUS="$1" AI_CODE_REVIEW_WORK_DIR="$out" AI_CODE_REVIEW_ENGINE_NAME=kiro PR_NUMBER=7 HEAD_SHA=abcdef1234 \
+  PATH="$out/bin:$PATH" STATUS="$1" MODEL="${MODEL-}" CREDITS="${CREDITS-}" AI_CODE_REVIEW_WORK_DIR="$out" AI_CODE_REVIEW_ENGINE_NAME=kiro PR_NUMBER=7 HEAD_SHA=abcdef1234 \
     GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=1 GITHUB_STEP_SUMMARY="$out/summary" \
     "$here/publish.sh" >"$out/log" 2>&1
 }
@@ -397,6 +409,8 @@ check "lists, posts, then collapses the earlier reviews" \
 check "the comment carries the marker" has "$tmp/publish/comment.md" "<!-- ai-code-review -->"
 check "the summary gets the review" has "$tmp/publish/summary" "Looks good."
 check "the footer names the engine" has "$tmp/publish/comment.md" "\`abcdef1\` · kiro"
+MODEL=claude-x-1 CREDITS=1.5 publish ok ""
+check "the footer names the model and credits" has "$tmp/publish/comment.md" "· kiro · \`claude-x-1\` · 1.5 credits ·"
 
 publish ok ""
 check "first review: nothing to collapse" test "$(calls)" = "list post"
@@ -486,6 +500,16 @@ check "reports the last session_usage total, rounded" has "$kiro_test/log" "cred
 jq -n '{type:"runFinished",data:{finalText:"<review>ok</review>"}}' >"$kiro_test/events.jsonl"
 kiro_run
 check "no usage event prints an empty credits line" grep -qx "credits=" "$kiro_test/log"
+echo "engines/kiro/run.sh: model"
+model_opt() { jq -nc --arg m "$1" '{type:"sessionUpdate",data:{update:{sessionUpdate:"config_option_update",
+  configOptions:[{id:"mode",currentValue:"vibe"},{id:"model",category:"model",currentValue:$m}]}}}'; }
+{ model_opt auto; model_opt claude-x-1; jq -nc '{type:"runFinished",data:{finalText:"<review>ok</review>"}}'; } >"$kiro_test/events.jsonl"
+kiro_run
+check "reports the model from the last config update" grep -qx "model=claude-x-1" "$kiro_test/log"
+jq -n '{type:"runFinished",data:{finalText:"<review>ok</review>"}}' >"$kiro_test/events.jsonl"
+AI_CODE_REVIEW_MODEL=m-req kiro_run
+check "no config update reports no model (review.sh owns the fallback)" grep -qx "model=" "$kiro_test/log"
+kiro_run # the sandbox checks below read this plain run
 echo "engines/kiro/run.sh: sandbox and the base agent"
 copy="$(realpath "$kiro_test/work")/kiro/repo"
 check "no overlay installs the base agent" \

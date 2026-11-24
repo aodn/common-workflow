@@ -8,7 +8,8 @@
 #         AI_CODE_REVIEW_AGENT_FILE   optional engine agent overlay, in the PR head
 #         AI_CODE_REVIEW_API_KEY      engine credential, checked against the output
 #   Out:  $AI_CODE_REVIEW_WORK_DIR/review.md, and "status=ok|empty|failed" plus
-#         "credits=<n>" appended to $GITHUB_OUTPUT (stdout when run locally)
+#         "credits=<n>" and "model=<id>" (the selected model) appended to
+#         $GITHUB_OUTPUT (stdout when run locally)
 #
 set -uo pipefail
 
@@ -82,7 +83,14 @@ else
   status=ok
 fi
 
+# The model the engine reports it selected. Only a completed review falls back
+# to the requested model, so a run where no model ran (empty diff, bad engine)
+# names none. Only a plain model id is passed on to the PR comment.
+model="$(sed -n 's/^model=//p' "$engine_out" 2>/dev/null | tail -n 1)"
+[[ "$status" != ok ]] || model="${model:-${AI_CODE_REVIEW_MODEL:-}}"
+[[ "$model" =~ ^[A-Za-z0-9._:/@-]{1,100}$ ]] || model=""
 {
   grep '^credits=' "$engine_out" 2>/dev/null
+  echo "model=$model"
   echo "status=$status"
 } >>"${GITHUB_OUTPUT:-/dev/stdout}"

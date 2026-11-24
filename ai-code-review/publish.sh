@@ -6,7 +6,7 @@
 #   In:  STATUS                 ok | empty | skipped | failed
 #        AI_CODE_REVIEW_WORK_DIR     holds review.md (for ok)
 #        AI_CODE_REVIEW_ENGINE_NAME  engine shown in the footer (optional)
-#        PR_NUMBER, HEAD_SHA, CREDITS (optional), GH_TOKEN
+#        PR_NUMBER, HEAD_SHA, CREDITS and MODEL (optional), GH_TOKEN
 #
 # shellcheck disable=SC2016 # $owner, $id etc. in queries are GraphQL variables
 set -euo pipefail
@@ -33,7 +33,7 @@ engine="${AI_CODE_REVIEW_ENGINE_NAME:-}"
   echo
   echo "---"
   echo "<sub>Advisory AI review; it does not replace human review or block merging." \
-    "Commit \`${HEAD_SHA:0:7}\`${engine:+ · ${engine}}${CREDITS:+ · ${CREDITS} credits} · [run](${run_url}).</sub>"
+    "Commit \`${HEAD_SHA:0:7}\`${engine:+ · ${engine}}${MODEL:+ · \`${MODEL}\`}${CREDITS:+ · ${CREDITS} credits} · [run](${run_url}).</sub>"
 } >"$body"
 
 cat "$body" >>"$GITHUB_STEP_SUMMARY"
