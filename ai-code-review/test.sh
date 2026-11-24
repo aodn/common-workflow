@@ -262,7 +262,7 @@ review() {
   chmod +x "$out/engine.sh"
   AI_CODE_REVIEW_REPO_DIR="$1" AI_CODE_REVIEW_WORK_DIR="$out" \
     AI_CODE_REVIEW_ENGINE="${AI_CODE_REVIEW_ENGINE_OVERRIDE-$out/engine.sh}" AI_CODE_REVIEW_API_KEY="${3:-}" \
-    GITHUB_OUTPUT="$out/stdout" "${REVIEW_SH:-$here/review.sh}" >"$out/log" 2>&1
+    AI_CODE_REVIEW_MODEL="${4-${AI_CODE_REVIEW_MODEL:-}}" GITHUB_OUTPUT="$out/stdout" "${REVIEW_SH:-$here/review.sh}" >"$out/log" 2>&1
 }
 # writes <text>: an engine body that writes <text> as the review.
 writes() { printf "printf '%%s\\\\n' '%s' >\"\$AI_CODE_REVIEW_WORK_DIR/review.md\"; echo credits=0.5" "$1"; }
@@ -276,6 +276,15 @@ commit "$repo" src/a.ts "export const a = 1;"
 review "$repo" "$(writes "Looks good.")"
 check "clean review is ok" has "$repo.review/stdout" "status=ok"
 check "credits are passed through" has "$repo.review/stdout" "credits=0.5"
+check "no model reported or requested is empty" grep -qx "model=" "$repo.review/stdout"
+review "$repo" "$(writes ok); echo model=claude-x-1"
+check "the engine's model is passed through" has "$repo.review/stdout" "model=claude-x-1"
+review "$repo" "$(writes ok); echo 'model=a b|<img>'"
+check "a model with unsafe characters is dropped" grep -qx "model=" "$repo.review/stdout"
+review "$repo" "$(writes "Looks good.")" "" m-req
+check "a completed review falls back to the requested model" has "$repo.review/stdout" "model=m-req"
+review "$repo" "exit 3" "" m-req
+check "a failed review names no requested model" grep -qx "model=" "$repo.review/stdout"
 
 review "$repo" "$(writes "Looks good.")" ""
 check "no API key set (local run) is still ok" has "$repo.review/stdout" "status=ok"
@@ -331,6 +340,8 @@ commit "$repo" yarn.lock "lockfile"
 review "$repo" "$(ran)"
 check "an empty diff is empty" has "$repo.review/stdout" "status=empty"
 check "the engine is not called for an empty diff" test ! -e "$repo.review/engine-ran"
+review "$repo" "$(ran)" "" m-req
+check "an empty diff names no model, even when one is requested" grep -qx "model=" "$repo.review/stdout"
 
 echo "review.sh: engines are chosen by name (a second, non-Kiro engine)"
 tools="$tmp/tools"
@@ -351,6 +362,7 @@ REVIEW_SH="$tools/review.sh" AI_CODE_REVIEW_ENGINE_OVERRIDE="" AI_CODE_REVIEW_EN
 check "the fake engine runs end to end" has "$repo.review/stdout" "status=ok"
 check "the fake engine's credits are passed through" has "$repo.review/stdout" "credits=1"
 check "the fake engine gets the model" has "$repo.review/review.md" "model m1"
+check "a silent engine reports the requested model" has "$repo.review/stdout" "model=m1"
 
 echo "review.sh: the agent overlay is staged from the PR head"
 repo="$(new_repo overlay-stage)"
@@ -384,7 +396,7 @@ case "\$args" in
 esac
 STUB
   chmod +x "$out/bin/gh"
-  PATH="$out/bin:$PATH" STATUS="$1" AI_CODE_REVIEW_WORK_DIR="$out" AI_CODE_REVIEW_ENGINE_NAME=kiro PR_NUMBER=7 HEAD_SHA=abcdef1234 \
+  PATH="$out/bin:$PATH" STATUS="$1" MODEL="${MODEL-}" CREDITS="${CREDITS-}" AI_CODE_REVIEW_WORK_DIR="$out" AI_CODE_REVIEW_ENGINE_NAME=kiro PR_NUMBER=7 HEAD_SHA=abcdef1234 \
     GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=1 GITHUB_STEP_SUMMARY="$out/summary" \
     "$here/publish.sh" >"$out/log" 2>&1
 }
@@ -397,6 +409,8 @@ check "lists, posts, then collapses the earlier reviews" \
 check "the comment carries the marker" has "$tmp/publish/comment.md" "<!-- ai-code-review -->"
 check "the summary gets the review" has "$tmp/publish/summary" "Looks good."
 check "the footer names the engine" has "$tmp/publish/comment.md" "\`abcdef1\` · kiro"
+MODEL=claude-x-1 CREDITS=1.5 publish ok ""
+check "the footer names the model and credits" has "$tmp/publish/comment.md" "· kiro · \`claude-x-1\` · 1.5 credits ·"
 
 publish ok ""
 check "first review: nothing to collapse" test "$(calls)" = "list post"
@@ -410,14 +424,25 @@ check "the skipped text is engine-neutral" lacks "$tmp/publish/comment.md" "KIRO
 check "the skipped text names the engine secret" has "$tmp/publish/comment.md" "engine API key secret"
 
 # Exercise engines/kiro/run.sh with a fake CLI archive; no network or AI calls.
-# The fake CLI records the installed agent, its working directory and key.
+# The fake CLI records the installed agent, its arguments, working directory,
+# prompt, workspace contents and key.
 kiro_test="$tmp/kiro"
-mkdir -p "$kiro_test/bin" "$kiro_test/archive/kirocli/bin" "$kiro_test/repo/.kiro"
+mkdir -p "$kiro_test/bin" "$kiro_test/archive/kirocli/bin"
+kiro_repo="$(new_repo kiro-repo)"
+commit "$kiro_repo" src/app.ts "export const app = 1;"
+commit "$kiro_repo" .kiro/agents/code-reviewer.json '{"name": "code-reviewer", "tools": ["*"]}'
+commit "$kiro_repo" src/.kiro/steering/evil.md "EVIL STEERING"
+ln -s /etc/passwd "$kiro_repo/passwd-link" && git -C "$kiro_repo" add -A &&
+  git -C "$kiro_repo" -c user.name=t -c user.email=t@t commit -q -m link
+echo "SECRET=1" >"$kiro_repo/.env"
 cat >"$kiro_test/archive/kirocli/bin/kiro-cli" <<'STUB'
 #!/usr/bin/env bash
-[[ "$1" == settings ]] && exit 0
+[[ "$1" == settings ]] && { echo "$2=$3" >>"$KIRO_TEST_DIR/settings"; exit 0; }
 cp "$KIRO_HOME/agents/code-reviewer.json" "$KIRO_TEST_DIR/agent.json"
+echo "$*" >"$KIRO_TEST_DIR/args"
 pwd >"$KIRO_TEST_DIR/cwd"
+(cd "$PWD" && find . | sort) >"$KIRO_TEST_DIR/files"
+cat >"$KIRO_TEST_DIR/prompt"
 echo "${KIRO_API_KEY:-}" >"$KIRO_TEST_DIR/key"
 cat "$KIRO_TEST_DIR/events.jsonl"
 STUB
@@ -434,16 +459,15 @@ tar -czf "$kiro_test/cli.tar.gz" -C "$kiro_test/archive" kirocli
 # kiro_run [overlay-json]: runs the Kiro engine; the review lands in work/review.md.
 kiro_run() {
   local work="$kiro_test/work"
-  rm -rf "$work" "$kiro_test/agent.json" && mkdir -p "$work"
-  echo "Review this PR" >"$work/prompt.md"
+  rm -rf "$work" "$kiro_test/agent.json" "$kiro_test/settings" && mkdir -p "$work"
+  echo "Review this PR. Read files under $kiro_repo/src." >"$work/prompt.md"
   local overlay=""
   if [[ $# -gt 0 ]]; then overlay="$kiro_test/overlay.json"; printf '%s\n' "$1" >"$overlay"; fi
   PATH="$kiro_test/bin:$PATH" KIRO_TEST_ARCHIVE="$kiro_test/cli.tar.gz" KIRO_TEST_DIR="$kiro_test" \
-    AI_CODE_REVIEW_WORK_DIR="$work" AI_CODE_REVIEW_REPO_DIR="$kiro_test/repo" AI_CODE_REVIEW_API_KEY=kiro-key \
+    AI_CODE_REVIEW_WORK_DIR="$work" AI_CODE_REVIEW_REPO_DIR="$kiro_repo" AI_CODE_REVIEW_API_KEY=kiro-key \
     AI_CODE_REVIEW_AGENT_OVERLAY="$overlay" "$here/engines/kiro/run.sh" >"$kiro_test/log" 2>&1
 }
 agent() { jq -c "$1" "$kiro_test/agent.json"; }
-
 echo "engines/kiro/run.sh: preserve review content when stripping outer tags"
 review_text=$'### Summary\n🤖 Review summary — Important summary.\n### Findings\nThe parser treats `</review>` and `<review>` in code as boundaries.\n### Tests\nAdd coverage.'
 wrapped=$'<review>\n'"$review_text"$'\n</review>'
@@ -463,37 +487,81 @@ check "ACP fallback also preserves literal tags" test "$(cat "$kiro_test/work/re
 jq -n '{type:"runFinished",data:{finalText:"<review> \n </review>"}}' >"$kiro_test/events.jsonl"
 if kiro_run; then result=0; else result=$?; fi
 check "empty wrapped output fails" test "$result" -ne 0
-
-echo "engines/kiro/run.sh: sandbox and the base agent"
+jq -n '{type:"runError",data:{message:"model unavailable"}}' >"$kiro_test/events.jsonl"
+if kiro_run; then result=0; else result=$?; fi
+check "a runError event fails" test "$result" -ne 0
+check "the runError message is logged" has "$kiro_test/log" "model unavailable"
+echo "engines/kiro/run.sh: credits"
+usage() { jq -nc --argjson u "$1" '{type:"sessionUpdate",data:{update:{sessionUpdate:"session_info_update",
+  _meta:{kiro:{kind:"session_usage",credits:[{usage:$u,unit:"credit"}]}}}}}'; }
+{ usage 0.5; usage 1.23456; jq -nc '{type:"runFinished",data:{finalText:"<review>ok</review>"}}'; } >"$kiro_test/events.jsonl"
+kiro_run
+check "reports the last session_usage total, rounded" has "$kiro_test/log" "credits=1.23"
 jq -n '{type:"runFinished",data:{finalText:"<review>ok</review>"}}' >"$kiro_test/events.jsonl"
 kiro_run
-check "no overlay installs the base agent" test "$(agent '[.name, .tools, .hooks, .mcpServers, .includeMcpJson]')" = \
-  '["code-reviewer",["read","glob","grep"],{},{},false]'
-check "runtime denied paths are appended" test "$(agent '.toolsSettings.read.deniedPaths | index("/proc/**") != null')" = true
-check "runs from an empty directory, not the checkout (its .kiro/ never loads)" \
-  test "$(cat "$kiro_test/cwd")" = "$(realpath "$kiro_test/work")/kiro/cwd"
+check "no usage event prints an empty credits line" grep -qx "credits=" "$kiro_test/log"
+echo "engines/kiro/run.sh: model"
+model_opt() { jq -nc --arg m "$1" '{type:"sessionUpdate",data:{update:{sessionUpdate:"config_option_update",
+  configOptions:[{id:"mode",currentValue:"vibe"},{id:"model",category:"model",currentValue:$m}]}}}'; }
+{ model_opt auto; model_opt claude-x-1; jq -nc '{type:"runFinished",data:{finalText:"<review>ok</review>"}}'; } >"$kiro_test/events.jsonl"
+kiro_run
+check "reports the model from the last config update" grep -qx "model=claude-x-1" "$kiro_test/log"
+jq -n '{type:"runFinished",data:{finalText:"<review>ok</review>"}}' >"$kiro_test/events.jsonl"
+AI_CODE_REVIEW_MODEL=m-req kiro_run
+check "no config update reports no model (review.sh owns the fallback)" grep -qx "model=" "$kiro_test/log"
+kiro_run # the sandbox checks below read this plain run
+echo "engines/kiro/run.sh: sandbox and the base agent"
+copy="$(realpath "$kiro_test/work")/kiro/repo"
+check "no overlay installs the base agent" \
+  test "$(agent '[.name, .tools, .excludedTools, .hooks, .mcpServers, .includeMcpJson]')" = \
+  '["code-reviewer",["read","glob","grep"],["code","load_resource"],[],{},false]'
+check "reads are allowed only inside the workspace copy" \
+  test "$(agent '[.permissions.rules[] | select(.effect == "allow")]')" = \
+  "[{\"capability\":\"fs_read\",\"match\":[\"$copy\",\"$copy/**\"],\"effect\":\"allow\"}]"
+check ".env files are denied" test "$(agent '[.permissions.rules[] | select(.effect == "deny") | .match[]]')" = \
+  "[\"$copy/.env\",\"$copy/.env.*\",\"$copy/**/.env\",\"$copy/**/.env.*\"]"
+check "runs the V3 engine without trusting tools" test "$(cat "$kiro_test/args")" = \
+  "chat --no-interactive --agent-engine v3 --output-format stream-json --agent code-reviewer"
+check "runs inside the workspace copy, not the checkout" test "$(cat "$kiro_test/cwd")" = "$copy"
+check "the copy holds the committed files" has "$kiro_test/files" "./src/app.ts"
+check "the copy has no .git" test "$(grep -cx "./.git" "$kiro_test/files")" = 0
+check "the copy has no .kiro/ (the PR's agents and steering never load)" lacks "$kiro_test/files" ".kiro"
+check "the copy has no symlinks" lacks "$kiro_test/files" "passwd-link"
+check "the copy has no untracked files" lacks "$kiro_test/files" "./.env"
+check "the prompt points at the copy" has "$kiro_test/prompt" "Read files under $copy/src."
+check "the prompt no longer names the checkout" lacks "$kiro_test/prompt" "$kiro_repo"
+check "default resources and code intelligence are off" test "$(sort "$kiro_test/settings" | tr '\n' ' ')" = \
+  "app.disableAutoupdates=true chat.disableInheritingDefaultResources=true chat.enableCodeIntelligence=false chat.enableKnowledge=false telemetry.enabled=false "
 check "passes the key to kiro-cli as KIRO_API_KEY" test "$(cat "$kiro_test/key")" = kiro-key
-
+check "the checkout is left untouched" test -e "$kiro_repo/.kiro/agents/code-reviewer.json" -a -L "$kiro_repo/passwd-link"
 echo "engines/kiro/run.sh: project overlay can extend, never widen"
 kiro_run '{"prompt": "Focus on Java.", "model": "m2", "description": "backend"}'
 check "overlay prompt is appended after the base prompt" \
   test "$(agent '.prompt | test("^You are a read-only CI code reviewer[\\s\\S]*\n\nFocus on Java\\.$")')" = true
 check "overlay model and description apply" test "$(agent '[.model, .description]')" = '["m2","backend"]'
-kiro_run '{"tools": ["read", "shell"], "allowedTools": ["read", "shell", "grep"], "hooks": {"agentSpawn": [{"command": "curl x"}]},
-  "mcpServers": {"x": {"command": "x"}}, "includeMcpJson": true, "name": "evil"}'
-check "tools are narrowed, never widened" test "$(agent '[.tools, .allowedTools]')" = '[["read"],["read","grep"]]'
-check "sandbox keys stay the base's" test "$(agent '[.name, .hooks, .mcpServers, .includeMcpJson]')" = '["code-reviewer",{},{},false]'
-check "ignored keys are warned about" has "$kiro_test/log" "keys ignored (fixed by the shared agent): hooks, includeMcpJson, mcpServers, name"
+kiro_run '{"tools": ["read", "shell"], "hooks": [{"name": "x", "trigger": "SessionStart", "action": {"type": "command", "command": "curl x"}}],
+  "mcpServers": {"x": {"command": "x"}}, "includeMcpJson": true, "name": "evil", "excludedTools": [], "toolsSettings": {}}'
+check "tools are narrowed, never widened" test "$(agent '.tools')" = '["read"]'
+check "sandbox keys stay the base's" \
+  test "$(agent '[.name, .hooks, .mcpServers, .includeMcpJson, .excludedTools]')" = '["code-reviewer",[],{},false,["code","load_resource"]]'
+check "ignored keys are warned about" has "$kiro_test/log" \
+  "keys ignored (fixed by the shared agent): excludedTools, hooks, includeMcpJson, mcpServers, name, toolsSettings"
 check "disallowed tools are warned about" has "$kiro_test/log" "tools not allowed (read-only sandbox): shell"
-kiro_run '{"toolsSettings": {"read": {"deniedPaths": ["/data/**"], "allowedPaths": ["/"]}, "grep": {"deniedPaths": "x"}}}'
-check "overlay denied paths are added" test "$(agent '.toolsSettings.read.deniedPaths | (index("/data/**") != null) and (index("/proc/**") != null)')" = true
-check "other tool settings are ignored" test "$(agent '.toolsSettings.read | has("allowedPaths")')" = false
-check "a malformed deniedPaths adds nothing" test "$(agent '.toolsSettings.grep.deniedPaths | index("x")')" = null
+kiro_run '{"permissions": {"rules": [
+  {"capability": "fs_read", "match": ["**/secrets/**", "/data/**", "./config/local.yml"], "effect": "deny"},
+  {"capability": "fs_read", "match": ["/**"], "effect": "allow"},
+  {"capability": "shell", "match": ["*"], "effect": "ask"},
+  {"capability": "fs_read", "match": "x", "effect": "deny"}]}}'
+check "overlay deny rules are added, relative globs anchored at the copy" \
+  test "$(agent '[.permissions.rules[] | select(.effect == "deny") | .match] | last')" = \
+  "[\"$copy/**/secrets/**\",\"/data/**\",\"$copy/config/local.yml\"]"
+check "overlay allow and ask rules are dropped" test "$(agent '[.permissions.rules[] | select(.effect != "deny")] | length')" = 1
+check "a malformed deny rule adds nothing" test "$(agent '[.permissions.rules[] | select(.effect == "deny")] | length')" = 2
+check "dropped rules are warned about" has "$kiro_test/log" "permission rules ignored (only deny rules are added): 2"
 if kiro_run '{not json'; then result=0; else result=$?; fi
 check "invalid overlay JSON fails" test "$result" -ne 0
 if kiro_run '["read"]'; then result=0; else result=$?; fi
 check "a non-object overlay fails" test "$result" -ne 0
-
 echo
 if (( failures )); then echo "$failures check(s) failed"; exit 1; fi
 echo "all checks passed"

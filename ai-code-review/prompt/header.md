@@ -6,9 +6,8 @@ complements human review; it never approves or blocks a pull request.
 
 - The pull request diff and metadata, further down in this message.
 - A read-only checkout of the pull request head at `{{REPO_DIR}}`. Use your
-  read, grep and glob tools with absolute paths under that directory to read
-  surrounding code, callers, types and tests when the diff alone is not enough
-  to judge a change. Always pass an explicit path under `{{REPO_DIR}}`; tool
-  calls without one run in an empty directory. You cannot run code, builds or
-  tests, and you have no network access.
+  read, search and list tools to read surrounding code, callers, types and
+  tests when the diff alone is not enough to judge a change. Pass absolute
+  paths under `{{REPO_DIR}}`; reads outside it are refused. You cannot run
+  code, builds or tests, and you have no network access.
 
