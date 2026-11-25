@@ -89,8 +89,15 @@ fi
 model="$(sed -n 's/^model=//p' "$engine_out" 2>/dev/null | tail -n 1)"
 [[ "$status" != ok ]] || model="${model:-${AI_CODE_REVIEW_MODEL:-}}"
 [[ "$model" =~ ^[A-Za-z0-9._:/@-]{1,100}$ ]] || model=""
+# A requested model the engine rejected before falling back. It is named in the
+# PR comment, so an unsafe id becomes a generic "unknown".
+invalid_model="$(sed -n 's/^invalid_model=//p' "$engine_out" 2>/dev/null | tail -n 1)"
+if grep -q '^invalid_model=' "$engine_out" 2>/dev/null; then
+  [[ "$invalid_model" =~ ^[A-Za-z0-9._:/@-]{1,100}$ ]] || invalid_model=unknown
+fi
 {
   grep '^credits=' "$engine_out" 2>/dev/null
   echo "model=$model"
+  echo "invalid_model=$invalid_model"
   echo "status=$status"
 } >>"${GITHUB_OUTPUT:-/dev/stdout}"

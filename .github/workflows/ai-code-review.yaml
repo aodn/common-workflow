@@ -161,6 +161,7 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           CREDITS: ${{ steps.review.outputs.credits }}
           MODEL: ${{ steps.review.outputs.model }}
+          INVALID_MODEL: ${{ steps.review.outputs.invalid_model }}
           STATUS: ${{ steps.pr.outputs.has_key != 'true' && 'skipped' || steps.review.outputs.status || 'failed' }}
         run: |
           "$TOOLS/publish.sh"
