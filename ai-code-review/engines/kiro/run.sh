@@ -8,7 +8,8 @@
 #         AI_CODE_REVIEW_MODEL          optional model id
 #         AI_CODE_REVIEW_AGENT_OVERLAY  optional project overlay on code-reviewer.json
 #   Out:  $AI_CODE_REVIEW_WORK_DIR/review.md, and "credits=<n>" and
-#         "model=<id>" (the selected model) on stdout
+#         "model=<id>" (the selected model) on stdout, plus
+#         "invalid_model=<id>" when the requested model was rejected
 #   Exit: 0 on success
 #
 set -euo pipefail
@@ -102,19 +103,40 @@ done
 # 5. Run headless, streaming JSON Lines events. No --trust-tools or
 #    --trust-all-tools: those override the deny rules, and the allow rule
 #    already covers every read the review needs.
-args=(chat --no-interactive --agent-engine v3 --output-format stream-json --agent code-reviewer)
-[[ -n "${AI_CODE_REVIEW_MODEL:-}" ]] && args+=(--model "$AI_CODE_REVIEW_MODEL")
-echo "kiro-cli ${kiro_version} (V3 engine), model ${AI_CODE_REVIEW_MODEL:-default}" >&2
-(cd "$copy" && KIRO_API_KEY="${AI_CODE_REVIEW_API_KEY:-}" kiro-cli "${args[@]}") \
-  <"$work/prompt.md" >"$work/events.jsonl" 2>"$work/stderr.log" ||
-  { tail -n 20 "$work/stderr.log" >&2; exit 1; }
+run_kiro() { # run_kiro [model]; exits non-zero on a failed run or a runError event
+  local args=(chat --no-interactive --agent-engine v3 --output-format stream-json --agent code-reviewer)
+  [[ -n "${1:-}" ]] && args+=(--model "$1")
+  echo "kiro-cli ${kiro_version} (V3 engine), model ${1:-$(jq -r '.model // "default"' "$agent")}" >&2
+  (cd "$copy" && KIRO_API_KEY="${AI_CODE_REVIEW_API_KEY:-}" kiro-cli "${args[@]}") \
+    <"$work/prompt.md" >"$work/events.jsonl" 2>"$work/stderr.log" &&
+    ! jq -se 'any(.[]; .type? == "runError")' "$work/events.jsonl" >/dev/null 2>&1
+}
+run_failed() {
+  jq -r 'select(.type? == "runError") | .data.message' "$work/events.jsonl" >&2 2>/dev/null || true
+  tail -n 20 "$work/stderr.log" >&2
+  exit 1
+}
+# kiro-cli accepts any model name; the service then rejects an unknown one
+# (runError errorType InvalidModelError) before any work is done. A typo in
+# the caller's or the overlay's model should not cost the review, so retry
+# once on the account default ("auto" unless the account sets one).
+if ! run_kiro "${AI_CODE_REVIEW_MODEL:-}"; then
+  requested="${AI_CODE_REVIEW_MODEL:-$(jq -r '.model // empty' "$agent")}"
+  if [[ -n "$requested" ]] &&
+    { jq -se 'any(.[]; .type? == "runError" and .data.errorType? == "InvalidModelError")' "$work/events.jsonl" >/dev/null 2>&1 ||
+      grep -q INVALID_MODEL_ID "$work/stderr.log"; }; then
+    echo "::warning title=AI review::Model '${requested}' is not available to this Kiro account; reviewed with the account default instead. Run 'kiro-cli chat --list-models' for valid ids." >&2
+    # For the PR comment, so readers see the review ran on another model.
+    echo "invalid_model=${requested}"
+    jq 'del(.model)' "$agent" >"$agent.tmp" && mv "$agent.tmp" "$agent"
+    run_kiro || run_failed
+  else
+    run_failed
+  fi
+fi
 # 6. Read the final response, falling back to ACP chunks. Extract from the
 #    first opening tag to the last closing tag, preserving tags in findings.
 events="$work/events.jsonl"
-if jq -se 'any(.[]; .type == "runError")' "$events" >/dev/null; then
-  jq -r 'select(.type == "runError") | .data.message' "$events" >&2
-  exit 1
-fi
 jq -se 'any(.[]; .type == "runFinished")' "$events" >/dev/null ||
   echo "::warning title=Kiro output format changed::No runFinished event; used ACP message chunks. Check kiro-cli ${kiro_version}."
 jq -rs '

@@ -6,6 +6,7 @@
 #   In:  STATUS                 ok | empty | skipped | failed
 #        AI_CODE_REVIEW_WORK_DIR     holds review.md (for ok)
 #        AI_CODE_REVIEW_ENGINE_NAME  engine shown in the footer (optional)
+#        INVALID_MODEL          requested model the engine rejected (optional)
 #        PR_NUMBER, HEAD_SHA, CREDITS and MODEL (optional), GH_TOKEN
 #
 # shellcheck disable=SC2016 # $owner, $id etc. in queries are GraphQL variables
@@ -20,6 +21,20 @@ engine="${AI_CODE_REVIEW_ENGINE_NAME:-}"
   echo "$marker"
   echo "## 🤖 AI code review"
   echo
+  # The requested model was rejected and the engine fell back to the default.
+  if [[ -n "${INVALID_MODEL:-}" ]]; then
+    requested="The requested model"
+    [[ "$INVALID_MODEL" != unknown ]] && requested="The model \`${INVALID_MODEL}\`"
+    echo "> [!WARNING]"
+    if [[ "$STATUS" == ok ]]; then
+      echo "> ${requested} is not available to this account, so this review ran on" \
+        "${MODEL:+\`${MODEL}\`, }the account default."
+    else
+      echo "> ${requested} is not available to this account, and the retry on the account default did not complete."
+    fi
+    echo "> Fix the \`model\` input of the calling workflow (for example \`vars.KIRO_MODEL\`)."
+    echo
+  fi
   case "$STATUS" in
     ok) head -c 60000 "$AI_CODE_REVIEW_WORK_DIR/review.md" ;;
     empty) echo "Nothing to review: only excluded files (lockfiles, generated files, images) changed." ;;

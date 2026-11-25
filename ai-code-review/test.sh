@@ -281,6 +281,11 @@ review "$repo" "$(writes ok); echo model=claude-x-1"
 check "the engine's model is passed through" has "$repo.review/stdout" "model=claude-x-1"
 review "$repo" "$(writes ok); echo 'model=a b|<img>'"
 check "a model with unsafe characters is dropped" grep -qx "model=" "$repo.review/stdout"
+check "no rejected model gives an empty invalid_model" grep -qx "invalid_model=" "$repo.review/stdout"
+review "$repo" "$(writes ok); echo invalid_model=wrong-model; echo model=auto"
+check "a rejected model is passed through" grep -qx "invalid_model=wrong-model" "$repo.review/stdout"
+review "$repo" "$(writes ok); echo 'invalid_model=@x <b>'"
+check "an unsafe rejected model becomes unknown" grep -qx "invalid_model=unknown" "$repo.review/stdout"
 review "$repo" "$(writes "Looks good.")" "" m-req
 check "a completed review falls back to the requested model" has "$repo.review/stdout" "model=m-req"
 review "$repo" "exit 3" "" m-req
@@ -396,7 +401,7 @@ case "\$args" in
 esac
 STUB
   chmod +x "$out/bin/gh"
-  PATH="$out/bin:$PATH" STATUS="$1" MODEL="${MODEL-}" CREDITS="${CREDITS-}" AI_CODE_REVIEW_WORK_DIR="$out" AI_CODE_REVIEW_ENGINE_NAME=kiro PR_NUMBER=7 HEAD_SHA=abcdef1234 \
+  PATH="$out/bin:$PATH" STATUS="$1" MODEL="${MODEL-}" INVALID_MODEL="${INVALID_MODEL-}" CREDITS="${CREDITS-}" AI_CODE_REVIEW_WORK_DIR="$out" AI_CODE_REVIEW_ENGINE_NAME=kiro PR_NUMBER=7 HEAD_SHA=abcdef1234 \
     GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=1 GITHUB_STEP_SUMMARY="$out/summary" \
     "$here/publish.sh" >"$out/log" 2>&1
 }
@@ -409,6 +414,16 @@ check "lists, posts, then collapses the earlier reviews" \
 check "the comment carries the marker" has "$tmp/publish/comment.md" "<!-- ai-code-review -->"
 check "the summary gets the review" has "$tmp/publish/summary" "Looks good."
 check "the footer names the engine" has "$tmp/publish/comment.md" "\`abcdef1\` · kiro"
+MODEL=auto INVALID_MODEL=wrong-model publish ok ""
+check "a rejected model is explained above the review" \
+  has "$tmp/publish/comment.md" "> The model \`wrong-model\` is not available to this account, so this review ran on \`auto\`, the account default."
+check "the explanation points at the model input" has "$tmp/publish/comment.md" "Fix the \`model\` input"
+check "the review still follows" has "$tmp/publish/comment.md" "Looks good."
+INVALID_MODEL=unknown publish failed ""
+check "a failed retry says so, without an unsafe id" \
+  has "$tmp/publish/comment.md" "> The requested model is not available to this account, and the retry on the account default did not complete."
+publish ok ""
+check "no rejected model, no warning" lacks "$tmp/publish/comment.md" "[!WARNING]"
 MODEL=claude-x-1 CREDITS=1.5 publish ok ""
 check "the footer names the model and credits" has "$tmp/publish/comment.md" "· kiro · \`claude-x-1\` · 1.5 credits ·"
 
@@ -440,6 +455,18 @@ cat >"$kiro_test/archive/kirocli/bin/kiro-cli" <<'STUB'
 [[ "$1" == settings ]] && { echo "$2=$3" >>"$KIRO_TEST_DIR/settings"; exit 0; }
 cp "$KIRO_HOME/agents/code-reviewer.json" "$KIRO_TEST_DIR/agent.json"
 echo "$*" >"$KIRO_TEST_DIR/args"
+echo "$*" >>"$KIRO_TEST_DIR/calls"
+# KIRO_TEST_BAD_MODEL, passed by --model or set in the agent, is rejected the
+# way the service rejects an unknown id.
+[[ -n "${KIRO_TEST_FAIL:-}" ]] && { cat >/dev/null; echo "[ERROR] network down" >&2; exit 1; }
+if [[ -n "${KIRO_TEST_BAD_MODEL:-}" ]] && { [[ " $* " == *" --model $KIRO_TEST_BAD_MODEL "* ]] ||
+  jq -e --arg m "$KIRO_TEST_BAD_MODEL" '.model == $m' "$KIRO_HOME/agents/code-reviewer.json" >/dev/null; }; then
+  cat >/dev/null
+  # What kiro-cli 3.5.0 writes for an unknown model: a runError event, exit 1.
+  jq -nc '{type:"runError",data:{stage:"prompt",errorType:"InvalidModelError",
+    message:"The model is not available. Please select a different model and try again."}}'
+  exit 1
+fi
 pwd >"$KIRO_TEST_DIR/cwd"
 (cd "$PWD" && find . | sort) >"$KIRO_TEST_DIR/files"
 cat >"$KIRO_TEST_DIR/prompt"
@@ -459,7 +486,7 @@ tar -czf "$kiro_test/cli.tar.gz" -C "$kiro_test/archive" kirocli
 # kiro_run [overlay-json]: runs the Kiro engine; the review lands in work/review.md.
 kiro_run() {
   local work="$kiro_test/work"
-  rm -rf "$work" "$kiro_test/agent.json" "$kiro_test/settings" && mkdir -p "$work"
+  rm -rf "$work" "$kiro_test/agent.json" "$kiro_test/settings" "$kiro_test/calls" && mkdir -p "$work"
   echo "Review this PR. Read files under $kiro_repo/src." >"$work/prompt.md"
   local overlay=""
   if [[ $# -gt 0 ]]; then overlay="$kiro_test/overlay.json"; printf '%s\n' "$1" >"$overlay"; fi
@@ -509,6 +536,25 @@ check "reports the model from the last config update" grep -qx "model=claude-x-1
 jq -n '{type:"runFinished",data:{finalText:"<review>ok</review>"}}' >"$kiro_test/events.jsonl"
 AI_CODE_REVIEW_MODEL=m-req kiro_run
 check "no config update reports no model (review.sh owns the fallback)" grep -qx "model=" "$kiro_test/log"
+echo "engines/kiro/run.sh: an unknown model falls back to the account default"
+jq -nc '{type:"runFinished",data:{finalText:"<review>ok</review>"}}' >"$kiro_test/events.jsonl"
+if AI_CODE_REVIEW_MODEL=wrong-model KIRO_TEST_BAD_MODEL=wrong-model kiro_run; then result=0; else result=$?; fi
+check "an unknown model still reviews" test "$result" -eq 0
+check "the review is kept" test "$(cat "$kiro_test/work/review.md")" = ok
+check "it retries once" test "$(grep -c . "$kiro_test/calls")" = 2
+check "the retry passes no --model" lacks "$kiro_test/args" "--model"
+check "the fallback is a warning naming the model" has "$kiro_test/log" "Model 'wrong-model' is not available"
+check "the rejected model is reported" grep -qx "invalid_model=wrong-model" "$kiro_test/log"
+if KIRO_TEST_BAD_MODEL=bad-overlay kiro_run '{"model": "bad-overlay"}'; then result=0; else result=$?; fi
+check "an unknown overlay model also falls back" test "$result" -eq 0
+check "the retry drops the overlay model" test "$(agent '.model // "none"')" = '"none"'
+AI_CODE_REVIEW_MODEL=good-model KIRO_TEST_BAD_MODEL=other kiro_run
+check "a valid model runs once" test "$(grep -c . "$kiro_test/calls")" = 1
+check "a valid model is passed" has "$kiro_test/args" "--model good-model"
+check "a valid model reports no rejected model" lacks "$kiro_test/log" "invalid_model="
+if AI_CODE_REVIEW_MODEL=wrong-model KIRO_TEST_FAIL=1 kiro_run; then result=0; else result=$?; fi
+check "another failure is not retried" test "$result" -ne 0 -a "$(grep -c . "$kiro_test/calls")" = 1
+check "another failure is logged" has "$kiro_test/log" "network down"
 kiro_run # the sandbox checks below read this plain run
 echo "engines/kiro/run.sh: sandbox and the base agent"
 copy="$(realpath "$kiro_test/work")/kiro/repo"

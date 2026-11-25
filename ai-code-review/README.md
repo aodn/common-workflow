@@ -139,7 +139,7 @@ move the `ai-code-review-vX` tags.
 | ------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `pr-number`         | required                            | PR to review                                                                                         |
 | `engine`            | required                            | Folder under `engines/` (`^[a-z0-9-]+$`), e.g. `kiro`                                               |
-| `model`             | `""`                                | Model id; empty uses the account default                                                            |
+| `model`             | `""`                                | Model id; empty uses the account default. With Kiro, an id the account can't use falls back to the account default, and the PR comment says so |
 | `prompt-file`       | `.github/ai-code-review/prompt.md`       | Review direction, read from the PR head. Required: a missing file fails the review                  |
 | `instruction-files` | `.github/ai-code-review/instructions.md` | Newline-separated files, read from the PR head and joined in order. Missing ones are skipped with a warning; none gives "None." |
 | `agent-file`        | `""`                                | Optional overlay on the engine's base agent, read from the PR head. Missing → warning, base only   |
